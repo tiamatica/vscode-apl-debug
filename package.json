@@ -1,0 +1,194 @@
+{
+  "name": "apl-debug",
+  "displayName": "APL Debug",
+  "version": "0.1.0",
+  "publisher": "tiamatica",
+  "description": "APL debug adapter for VS Code.",
+  "author": {
+    "email": "gil@tiamatica.com",
+    "name": "Gilgamesh Athoraya",
+    "url": "https://github.com/tiamatica"
+  },
+  "license": "MIT",
+  "keywords": [
+    "multi-root ready"
+  ],
+  "engines": {
+    "vscode": "^1.55.0"
+  },
+  "icon": "images/logo.png",
+  "categories": [
+    "Debuggers"
+  ],
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tiamatica/vscode-apl-debug.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tiamatica/vscode-apl-debug/issues"
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package-ext && npm run package-web",
+    "compile": "tsc -p ./",
+    "lint": "eslint src --ext ts",
+    "watch": "webpack --watch --devtool nosources-source-map --info-verbosity verbose --config ./build/extension.webpack.config.js",
+    "watch2": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "package-ext": "webpack --mode production --config ./build/extension.webpack.config.js",
+    "compile-web": "webpack --devtool nosources-source-map --config ./build/web-extension.webpack.config.js",
+    "watch-web": "webpack --watch --devtool nosources-source-map --info-verbosity verbose --config ./build/web-extension.webpack.config.js",
+    "package-web": "webpack --mode production --config ./build/web-extension.webpack.config.js"
+  },
+  "dependencies": {
+    "await-notify": "1.0.1",
+    "vscode-debugadapter": "^1.46.0"
+  },
+  "devDependencies": {
+    "@types/glob": "^7.1.3",
+    "@types/mocha": "^8.2.2",
+    "@types/node": "^14.14.37",
+    "@types/vscode": "^1.55.0",
+    "@typescript-eslint/eslint-plugin": "^4.21.0",
+    "@typescript-eslint/parser": "^4.21.0",
+    "eslint": "^7.23.0",
+    "glob": "^7.1.6",
+    "mocha": "^8.3.2",
+    "ts-loader": "^8.1.0",
+    "typescript": "^4.2.3",
+    "vsce": "^1.88.0",
+    "vscode-debugadapter-testsupport": "^1.46.0",
+    "webpack": "^4.46.0",
+    "webpack-cli": "^3.3.12"
+  },
+  "main": "./dist/ext/extension.js",
+  "browser": "./dist/web/extension.js",
+  "activationEvents": [
+    "onDebugResolve:apl",
+    "onDebugDynamicConfigurations:apl",
+    "onCommand:extension.apl-debug.getProgramName",
+    "onCommand:extension.apl-debug.runEditorContents",
+    "onCommand:extension.apl-debug.debugEditorContents"
+  ],
+  "workspaceTrust": {
+    "request": "never"
+  },
+  "contributes": {
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "extension.apl-debug.runEditorContents",
+          "when": "resourceLangId == apl"
+        },
+        {
+          "command": "extension.apl-debug.debugEditorContents",
+          "when": "resourceLangId == apl"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "extension.apl-debug.debugEditorContents",
+          "when": "resourceLangId == apl"
+        },
+        {
+          "command": "extension.apl-debug.runEditorContents",
+          "when": "resourceLangId == apl"
+        }
+      ],
+      "debug/variables/context": [
+        {
+          "command": "extension.apl-debug.toggleFormatting",
+          "when": "debugType == 'apl' && debugProtocolVariableMenuContext == 'simple'"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "extension.apl-debug.debugEditorContents",
+        "title": "Debug File",
+        "category": "APL Debug",
+        "enablement": "!inDebugMode",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "extension.apl-debug.runEditorContents",
+        "title": "Run File",
+        "category": "APL Debug",
+        "enablement": "!inDebugMode",
+        "icon": "$(play)"
+      },
+      {
+        "command": "extension.apl-debug.toggleFormatting",
+        "title": "Toggle between decimal and hex formatting"
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "apl"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "apl",
+        "languages": [
+          "apl"
+        ],
+        "label": "APL Debug",
+        "program": "./out/debugAdapter.js",
+        "runtime": "node",
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "program"
+            ],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Absolute path to a text file.",
+                "default": "${workspaceFolder}/${command:AskForProgramName}"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Automatically stop after launch.",
+                "default": true
+              },
+              "trace": {
+                "type": "boolean",
+                "description": "Enable logging of the Debug Adapter Protocol.",
+                "default": true
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "apl",
+            "request": "launch",
+            "name": "Ask for file name",
+            "program": "${workspaceFolder}/${command:AskForProgramName}",
+            "stopOnEntry": true
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "APL Debug: Launch",
+            "description": "A new configuration for 'debugging' a user selected apl file.",
+            "body": {
+              "type": "apl",
+              "request": "launch",
+              "name": "Ask for file name",
+              "program": "^\"\\${workspaceFolder}/\\${command:AskForProgramName}\"",
+              "stopOnEntry": true
+            }
+          }
+        ],
+        "variables": {
+          "AskForProgramName": "extension.apl-debug.getProgramName"
+        }
+      }
+    ]
+  }
+}
