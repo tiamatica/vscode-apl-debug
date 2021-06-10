@@ -1,5 +1,4 @@
-test;a
+goo;a
 ⎕←a←1
 ⎕←b←233
 ⎕←a+b
-foo

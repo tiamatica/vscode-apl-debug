@@ -94,11 +94,15 @@ export class AplRuntime extends EventEmitter {
 	private last = 0; // last:when last rundown finished
 	private tid = 0; // tid:timeout id
 	private _winId = 0; // current window id
+	private _startTime = 0; // start time of debug session
+	private _linkRE: RegExp; // start time of debug session
 
 	private maxl = 1000;
 	
 	constructor(private _fileAccessor: FileAccessor) {
 		super();
+		this._startTime = Date.now();
+		this._linkRE = new RegExp(`link${this._startTime}(\\[.*?\\])link${this._startTime}`, 'gs');
 	}
 
 	/**
@@ -236,6 +240,7 @@ export class AplRuntime extends EventEmitter {
 		this.sendEach([
 		  'SupportedProtocols=2', 'UsingProtocol=2',
 		  '["Identify",{"identity":1}]', '["Connect",{"remoteId":2}]', '["GetWindowLayout",{}]',
+		  '["Subscribe",{"status":["statusfields","stack","threads"]}]'
 		]);
 	}
 
@@ -261,9 +266,20 @@ export class AplRuntime extends EventEmitter {
 		this.last = +new Date();
 		this.tid = 0;
 	}
-	  
+	
+	private _linkInfo: string[][] = [];
 	private add(text: string) {
-		this.sendEvent('output', text, this._sourceFile);
+		let m;
+		let output = true;
+		while(m = this._linkRE.exec(text))
+		{
+			output = false;
+			const json = m[1].replace(/\n\s+/,'');
+			this._linkInfo.push(JSON.parse(json));
+		}
+		if (output) {
+			this.sendEvent('output', text, this._sourceFile, 'stdout');
+		}
 	}
 
 	private rrd() { // request rundown
@@ -382,11 +398,14 @@ export class AplRuntime extends EventEmitter {
 				this.exec(this._trace ? 1 : 0, '⍎name');
 			} else {
 				this.exec(0, `⎕SE.Link.Create # '${this._folder}'`);
+				this.exec(0, `'link${this._startTime}'∘{⎕←⍺,⍺,⍨⎕JSON⍕¨⍵}¨5177⌶⍬`);
 			}
 		}
 	}
-		
-	private HadError() {
+	
+	private _hadError = 0;
+	private HadError(x) {
+		this._hadError = x.error; 
 	}
 
 	private GotoWindow(x) {
@@ -460,6 +479,11 @@ export class AplRuntime extends EventEmitter {
 	}
 	private OpenWindow(x) {
 		this._winId = x.token;
+		this.sendEvent('openWindow', { filename: x.filename });
+		if (this._hadError === 1001) {
+			this.sendEvent('stopOnBreakpoint');
+			this._hadError = 0;
+		}
 		// if (!ee.debugger && D.el && process.env.RIDE_EDITOR) {
 		// const fs = nodeRequire('fs');
 		// const os = nodeRequire('os');
@@ -583,6 +607,23 @@ export class AplRuntime extends EventEmitter {
 		// ${x.monitors} monitors`, 'Clear all trace/stop/monitor');
 	}
 	private ReplyGetSIStack(x) {
+		if (this._siStack) {
+			const frames: IStackFrame[] = x.stack.map((s, i) => {
+				const m = /(.*)\[(\d+)\]/.exec(s.description) || [];
+				const link = this._linkInfo.find(x=> `${x[1]}.${x[0]}` === m[1]) || [];
+				const frame: IStackFrame = {
+					index: i,
+					name: m[1],
+					file: link[3],
+					line: +m[2],
+				};
+				return frame;
+			});
+			this._siStack.resolve({
+				frames: frames,
+				count: x.stack.length
+			});
+		}
 		// const l = x.stack.length;
 		// I.sb_sis.innerText = `⎕SI: ${l}`;
 		// I.sb_sis.classList.toggle('active', l > 0);
@@ -679,12 +720,23 @@ export class AplRuntime extends EventEmitter {
 
 	private _autocompletion: any;
 	/**
-	 * Reply to TaskDialog
+	 * Get autocomplete
 	 */
 	public getAutocomplete(line: string, pos: number, token: number): PromiseLike<string[]> {
 		return new Promise((resolve, reject) => {
 			this._autocompletion = { resolve, reject };
 			this.send('GetAutocomplete', { line, pos, token });
+		});
+	}
+
+	private _siStack: any;
+	/**
+	 * Get stack
+	 */
+	public getSIStack(): PromiseLike<IStack> {
+		return new Promise((resolve, reject) => {
+			this._siStack = { resolve, reject };
+			this.send('GetSIStack', {});
 		});
 	}
 
@@ -886,7 +938,11 @@ export class AplRuntime extends EventEmitter {
 		if (reverse) {
 			this.send('TraceBackward', { win: this._winId });
 		} else {
-			this.send('RunCurrentLine', { win: this._winId });
+			if (stepEvent) {
+				this.send('RunCurrentLine', { win: this._winId });
+			} else {
+				this.send('Continue', { win: this._winId });
+			}
 			// no more lines: run to end
 			// this.sendEvent('end');
 		}

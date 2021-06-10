@@ -87,6 +87,10 @@ export class AplDebugSession extends LoggingDebugSession {
 				}
 			);
 		});
+		this._runtime.on('openWindow', (opt) => {
+			// vscode.window.showTextDocument(vscode.Uri.file(opt.filename));
+		});
+		
 		this._runtime.on('stopOnEntry', () => {
 			this.sendEvent(new StoppedEvent('entry', AplDebugSession.threadID));
 		});
@@ -109,8 +113,8 @@ export class AplDebugSession extends LoggingDebugSession {
 		this._runtime.on('breakpointValidated', (bp: IAplBreakpoint) => {
 			this.sendEvent(new BreakpointEvent('changed', { verified: bp.verified, id: bp.id } as DebugProtocol.Breakpoint));
 		});
-		this._runtime.on('output', (text, filePath) => {
-			const e: DebugProtocol.OutputEvent = new OutputEvent(text);
+		this._runtime.on('output', (text, filePath, category) => {
+			const e: DebugProtocol.OutputEvent = new OutputEvent(text, category);
 			e.body.source = this.createSource(filePath);
 			this.sendEvent(e);
 		});
@@ -319,23 +323,22 @@ export class AplDebugSession extends LoggingDebugSession {
 		const startFrame = typeof args.startFrame === 'number' ? args.startFrame : 0;
 		const maxLevels = typeof args.levels === 'number' ? args.levels : 1000;
 		const endFrame = startFrame + maxLevels;
-
-		const stk = this._runtime.stack(startFrame, endFrame);
-
-		response.body = {
-			stackFrames: stk.frames.map(f => {
-				const sf = new StackFrame(f.index, f.name, this.createSource(f.file), this.convertDebuggerLineToClient(f.line));
-				if (typeof f.column === 'number') {
-					sf.column = this.convertDebuggerColumnToClient(f.column);
-				}
-				return sf;
-			}),
-			//no totalFrames: 				// VS Code has to probe/guess. Should result in a max. of two requests
-			totalFrames: stk.count			// stk.count is the correct size, should result in a max. of two requests
-			//totalFrames: 1000000 			// not the correct size, should result in a max. of two requests
-			//totalFrames: endFrame + 20 	// dynamically increases the size with every requested chunk, results in paging
-		};
-		this.sendResponse(response);
+	
+		this._runtime.getSIStack()
+		.then((stk) => {
+			response.body = {
+				stackFrames: stk.frames.map(f => {
+					return new StackFrame(
+						f.index, 
+						f.name, 
+						this.createSource(f.file), 
+						this.convertDebuggerLineToClient(f.line)
+					);
+				}),
+				totalFrames: stk.count,
+			};
+			this.sendResponse(response);	
+		});
 	}
 
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
@@ -352,89 +355,6 @@ export class AplDebugSession extends LoggingDebugSession {
 	protected async variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request) {
 
 		const variables: DebugProtocol.Variable[] = [];
-
-		if (this._isLongrunning.get(args.variablesReference)) {
-			// long running
-
-			if (request) {
-				this._cancelationTokens.set(request.seq, false);
-			}
-
-			for (let i = 0; i < 100; i++) {
-				await timeout(1000);
-				variables.push({
-					name: `i_${i}`,
-					type: "integer",
-					value: `${i}`,
-					variablesReference: 0
-				});
-				if (request && this._cancelationTokens.get(request.seq)) {
-					break;
-				}
-			}
-
-			if (request) {
-				this._cancelationTokens.delete(request.seq);
-			}
-
-		} else {
-
-			const id = this._variableHandles.get(args.variablesReference);
-
-			if (id) {
-				const i = 12345678;
-				variables.push({
-					name: id + "_i",
-					type: "integer",
-					value: this._showHex ? '0x' + i.toString(16) : i.toString(10),
-					// eslint-disable-next-line @typescript-eslint/naming-convention
-					__vscodeVariableMenuContext: "simple",
-					variablesReference: 0
-				} as DebugProtocol.Variable);
-				variables.push({
-					name: id + "_f",
-					type: "float",
-					value: "3.14",
-					variablesReference: 0
-				});
-				variables.push({
-					name: id + "_f",
-					type: "float",
-					value: "6.28",
-					variablesReference: 0
-				});
-				variables.push({
-					name: id + "_f",
-					type: "float",
-					value: "6.28",
-					variablesReference: 0
-				});
-				variables.push({
-					name: id + "_s",
-					type: "string",
-					value: "hello world",
-					variablesReference: 0
-				});
-				variables.push({
-					name: id + "_o",
-					type: "object",
-					value: "Object",
-					variablesReference: this._variableHandles.create(id + "_o")
-				});
-
-				// cancellation support for long running requests
-				const nm = id + "_long_running";
-				const ref = this._variableHandles.create(id + "_lr");
-				variables.push({
-					name: nm,
-					type: "object",
-					value: "Object",
-					variablesReference: ref
-				});
-				this._isLongrunning.set(ref, true);
-			}
-		}
-
 		response.body = {
 			variables: variables
 		};
