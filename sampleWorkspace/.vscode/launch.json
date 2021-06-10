@@ -7,8 +7,18 @@
 		{
 			"type": "apl",
 			"request": "launch",
-			"name": "Debug test.aplf",
+			"name": "Debug current file",
 			"program": "${workspaceFolder}/test.aplf",
+			"cwd": "${workspaceFolder}",
+			"stopOnEntry": true,
+			"trace": false
+		},
+		{
+			"type": "apl",
+			"request": "launch",
+			"name": "Debug current workspace",
+			"program": "",
+			"cwd": "${workspaceFolder}",
 			"stopOnEntry": true,
 			"trace": false
 		}

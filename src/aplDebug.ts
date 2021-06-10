@@ -6,7 +6,8 @@ import {
 	Logger, logger,
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
-	ProgressStartEvent, ProgressUpdateEvent, ProgressEndEvent, InvalidatedEvent,
+	// ProgressStartEvent, ProgressUpdateEvent, ProgressEndEvent, 
+	InvalidatedEvent,
 	Thread, StackFrame, Scope, Source, Handles, Breakpoint
 } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
@@ -27,6 +28,8 @@ function timeout(ms: number) {
 interface ILaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
 	/** An absolute path to the "program" to debug. */
 	program: string;
+	/** An absolute path to the folder to load into debugger. */
+	cwd: string;
 	/** Automatically stop target after launch. If not specified, target does not stop. */
 	stopOnEntry?: boolean;
 	/** enable logging the Debug Adapter Protocol */
@@ -95,7 +98,7 @@ export class AplDebugSession extends LoggingDebugSession {
 			this.sendEvent(new BreakpointEvent('changed', { verified: bp.verified, id: bp.id } as DebugProtocol.Breakpoint));
 		});
 		this._runtime.on('output', (text, filePath, line, column) => {
-			const e: DebugProtocol.OutputEvent = new OutputEvent(`${text}\n`);
+			const e: DebugProtocol.OutputEvent = new OutputEvent(text);
 
 			if (text === 'start' || text === 'startCollapsed' || text === 'end') {
 				e.body.group = text;
@@ -204,7 +207,7 @@ export class AplDebugSession extends LoggingDebugSession {
 		await this._configurationDone.wait(1000);
 
 		// start the program in the runtime
-		await this._runtime.start(args.program, !!args.stopOnEntry, !!args.noDebug);
+		await this._runtime.start(args.program, args.cwd, !!args.stopOnEntry, !!args.noDebug);
 
 		this.sendResponse(response);
 	}
@@ -480,74 +483,13 @@ export class AplDebugSession extends LoggingDebugSession {
 
 		if (args.context === 'repl') {
 			this._runtime.execute(args.expression);
-			// 'evaluate' supports to create and delete breakpoints from the 'repl':
-			// const matches = /new +([0-9]+)/.exec(args.expression);
-			// if (matches && matches.length === 2) {
-			// 	const mbp = await this._runtime.setBreakPoint(this._runtime.sourceFile, this.convertClientLineToDebugger(parseInt(matches[1])));
-			// 	const bp = new Breakpoint(mbp.verified, this.convertDebuggerLineToClient(mbp.line), undefined, this.createSource(this._runtime.sourceFile)) as DebugProtocol.Breakpoint;
-			// 	bp.id= mbp.id;
-			// 	this.sendEvent(new BreakpointEvent('new', bp));
-			// 	reply = `breakpoint created`;
-			// } else {
-			// 	const matches = /del +([0-9]+)/.exec(args.expression);
-			// 	if (matches && matches.length === 2) {
-			// 		const mbp = this._runtime.clearBreakPoint(this._runtime.sourceFile, this.convertClientLineToDebugger(parseInt(matches[1])));
-			// 		if (mbp) {
-			// 			const bp = new Breakpoint(false) as DebugProtocol.Breakpoint;
-			// 			bp.id= mbp.id;
-			// 			this.sendEvent(new BreakpointEvent('removed', bp));
-			// 			reply = `breakpoint deleted`;
-			// 		}
-			// 	} else {
-			// 		const matches = /progress/.exec(args.expression);
-			// 		if (matches && matches.length === 1) {
-			// 			if (this._reportProgress) {
-			// 				reply = `progress started`;
-			// 				this.progressSequence();
-			// 			} else {
-			// 				reply = `frontend doesn't support progress (capability 'supportsProgressReporting' not set)`;
-			// 			}
-			// 		}
-			// 	}
-			// }
 		}
 
 		response.body = {
-			result: reply ? reply : `evaluate(context: '${args.context}', '${args.expression}')`,
+			result: '',
 			variablesReference: 0
 		};
 		this.sendResponse(response);
-	}
-
-	private async progressSequence() {
-
-		const ID = '' + this._progressId++;
-
-		await timeout(100);
-
-		const title = this._isProgressCancellable ? 'Cancellable operation' : 'Long running operation';
-		const startEvent: DebugProtocol.ProgressStartEvent = new ProgressStartEvent(ID, title);
-		startEvent.body.cancellable = this._isProgressCancellable;
-		this._isProgressCancellable = !this._isProgressCancellable;
-		this.sendEvent(startEvent);
-		this.sendEvent(new OutputEvent(`start progress: ${ID}\n`));
-
-		let endMessage = 'progress ended';
-
-		for (let i = 0; i < 100; i++) {
-			await timeout(500);
-			this.sendEvent(new ProgressUpdateEvent(ID, `progress: ${i}`));
-			if (this._cancelledProgressId === ID) {
-				endMessage = 'progress cancelled';
-				this._cancelledProgressId = undefined;
-				this.sendEvent(new OutputEvent(`cancel progress: ${ID}\n`));
-				break;
-			}
-		}
-		this.sendEvent(new ProgressEndEvent(ID, endMessage));
-		this.sendEvent(new OutputEvent(`end progress: ${ID}\n`));
-
-		this._cancelledProgressId = undefined;
 	}
 
 	protected dataBreakpointInfoRequest(response: DebugProtocol.DataBreakpointInfoResponse, args: DebugProtocol.DataBreakpointInfoArguments): void {

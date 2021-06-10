@@ -77,6 +77,8 @@ export class AplRuntime extends EventEmitter {
 	private _breakAddresses = new Set<string>();
 
 	private _noDebug = false;
+	private _trace = false;
+	private _folder = '';
 
 	private _namedException: string | undefined;
 	private _otherExceptions = false;
@@ -92,6 +94,7 @@ export class AplRuntime extends EventEmitter {
 	private blk = 0; // blk:blocked?
 	private last = 0; // last:when last rundown finished
 	private tid = 0; // tid:timeout id
+	private _winId = 0; // current window id
 
 	private maxl = 1000;
 	
@@ -102,9 +105,11 @@ export class AplRuntime extends EventEmitter {
 	/**
 	 * Start executing the given program.
 	 */
-	public async start(program: string, stopOnEntry: boolean, noDebug: boolean): Promise<void> {
+	public async start(program: string, folder: string, stopOnEntry: boolean, noDebug: boolean): Promise<void> {
 
 		this._noDebug = noDebug;
+		this._folder = folder;
+		this._trace = stopOnEntry;
 
 		this.launchDyalog();
 		
@@ -112,14 +117,6 @@ export class AplRuntime extends EventEmitter {
 		this._currentLine = -1;
 
 		await this.verifyBreakpoints(this._sourceFile);
-
-		if (stopOnEntry) {
-			// we step once
-			this.step(false, 'stopOnEntry');
-		} else {
-			// we just start to run until we hit a breakpoint or an exception
-			this.continue();
-		}
 	}
 
 	private launchDyalog(): void {
@@ -274,7 +271,7 @@ export class AplRuntime extends EventEmitter {
 		this.log('rrd');
 		if(!this.tid) {
 			if (Date.now() - this.last < 20) {
-				this.tid = +setTimeout(this.rd, 20);
+				this.tid = +setTimeout(() => { this.rd(); }, 20);
 			} else {
 				this.rd();
 			}
@@ -318,8 +315,8 @@ export class AplRuntime extends EventEmitter {
 
 	// RIDE protocol message handlers
 	private Identify(x) {
-		// this.remoteIdentification = x;
-		// this.isClassic = x.arch[0] === 'C';
+		this.remoteIdentification = x;
+		this.isClassic = x.arch[0] === 'C';
 		// if (this.isClassic) {
 		// Object.keys(this.bq).forEach((k) => {
 		// 	const sysfn = `u${this.bq[k].codePointAt(0).toString(16)}`;
@@ -380,9 +377,12 @@ export class AplRuntime extends EventEmitter {
 		// (t === 2 || t === 4) && ide.wins[0].focus(); // ⎕ / ⍞ input
 		// t === 1 && ide.getStats();
 		if (t === 1 && this.bannerDone === 0) {
+			// this.exec(0, `{}2 ⎕FIX 'file://${this._sourceFile}'`);
+			this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`);
+			this.exec(this._trace ? 1 : 0, '⍎name\n');
+			
 		// arrange for the banner to appear at the top of the session window
 		this.bannerDone = 1;
-		this.exec(0, `{}2 ⎕FIX 'file://${this._sourceFile}'`);
 		// const { me } = ide.wins[0];
 		// me.focus();
 		// if (!D.spawned) return;
@@ -448,6 +448,9 @@ export class AplRuntime extends EventEmitter {
 		// ide.wins[x.token].ValueTip(x); 
 	}
 	private SetHighlightLine(x) { 
+		this._currentLine = x.line;
+		this._currentColumn = undefined;
+		this.sendEvent(x.line === 0 ? 'stopOnEntry' : 'stopOnStep');
 		// const w = D.wins[x.win];
 		// w.SetHighlightLine(x.line, ide.hadErr);
 		// ide.hadErr > 0 && (ide.hadErr -= 1);
@@ -475,7 +478,8 @@ export class AplRuntime extends EventEmitter {
 		// ide.WSEwidth = ide.wsew; ide.DBGwidth = ide.dbgw;
 		// w.tc && ide.getStats();
 	}
-	private OpenWindow(ee) {
+	private OpenWindow(x) {
+		this._winId = x.token;
 		// if (!ee.debugger && D.el && process.env.RIDE_EDITOR) {
 		// const fs = nodeRequire('fs');
 		// const os = nodeRequire('os');
@@ -827,7 +831,7 @@ export class AplRuntime extends EventEmitter {
 			this._breakPoints.set(path, bps);
 		}
 		bps.push(bp);
-
+		this.send('SetLineAttributes', { win: this._winId, stop: bps.map(bp => bp.line) });
 		await this.verifyBreakpoints(path);
 
 		return bp;
@@ -895,27 +899,11 @@ export class AplRuntime extends EventEmitter {
 	 */
 	private run(reverse = false, stepEvent?: string) {
 		if (reverse) {
-			for (let ln = this._currentLine-1; ln >= 0; ln--) {
-				if (this.fireEventsForLine(ln, stepEvent)) {
-					this._currentLine = ln;
-					this._currentColumn = undefined;
-					return;
-				}
-			}
-			// no more lines: stop at first line
-			this._currentLine = 0;
-			this._currentColumn = undefined;
-			this.sendEvent('stopOnEntry');
+			this.send('TraceBackward', { win: this._winId });
 		} else {
-			for (let ln = this._currentLine+1; ln < this._sourceLines.length; ln++) {
-				if (this.fireEventsForLine(ln, stepEvent)) {
-					this._currentLine = ln;
-					this._currentColumn = undefined;
-					return true;
-				}
-			}
+			this.send('RunCurrentLine', { win: this._winId });
 			// no more lines: run to end
-			this.sendEvent('end');
+			// this.sendEvent('end');
 		}
 	}
 
@@ -949,85 +937,6 @@ export class AplRuntime extends EventEmitter {
 				}
 			});
 		}
-	}
-
-	/**
-	 * Fire events if line has a breakpoint or the word 'exception' or 'exception(...)' is found.
-	 * Returns true if execution needs to stop.
-	 */
-	private fireEventsForLine(ln: number, stepEvent?: string): boolean {
-
-		if (this._noDebug) {
-			return false;
-		}
-
-		const line = this._sourceLines[ln].trim();
-
-		// if 'log(...)' found in source -> send argument to debug console
-		const matches = /log\((.*)\)/.exec(line);
-		if (matches && matches.length === 2) {
-			this.sendEvent('output', matches[1], this._sourceFile, ln, matches.index);
-		}
-
-		// if a word in a line matches a data breakpoint, fire a 'dataBreakpoint' event
-		const words = line.split(" ");
-		for (const word of words) {
-			if (this._breakAddresses.has(word)) {
-				this.sendEvent('stopOnDataBreakpoint');
-				return true;
-			}
-		}
-
-		// if pattern 'exception(...)' found in source -> throw named exception
-		const matches2 = /exception\((.*)\)/.exec(line);
-		if (matches2 && matches2.length === 2) {
-			const exception = matches2[1].trim();
-			if (this._namedException === exception) {
-				this.sendEvent('stopOnException', exception);
-				return true;
-			} else {
-				if (this._otherExceptions) {
-					this.sendEvent('stopOnException', undefined);
-					return true;
-				}
-			}
-		} else {
-			// if word 'exception' found in source -> throw exception
-			if (line.indexOf('exception') >= 0) {
-				if (this._otherExceptions) {
-					this.sendEvent('stopOnException', undefined);
-					return true;
-				}
-			}
-		}
-
-		// is there a breakpoint?
-		const breakpoints = this._breakPoints.get(this._sourceFile);
-		if (breakpoints) {
-			const bps = breakpoints.filter(bp => bp.line === ln);
-			if (bps.length > 0) {
-
-				// send 'stopped' event
-				this.sendEvent('stopOnBreakpoint');
-
-				// the following shows the use of 'breakpoint' events to update properties of a breakpoint in the UI
-				// if breakpoint is not yet verified, verify it now and send a 'breakpoint' update event
-				if (!bps[0].verified) {
-					bps[0].verified = true;
-					this.sendEvent('breakpointValidated', bps[0]);
-				}
-				return true;
-			}
-		}
-
-		// non-empty line
-		if (stepEvent && line.length > 0) {
-			this.sendEvent(stepEvent);
-			return true;
-		}
-
-		// nothing interesting found -> continue
-		return false;
 	}
 
 	private sendEvent(event: string, ... args: any[]) {

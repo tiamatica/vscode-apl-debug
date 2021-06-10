@@ -52,8 +52,8 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 
 	context.subscriptions.push(vscode.commands.registerCommand('extension.apl-debug.getProgramName', config => {
 		return vscode.window.showInputBox({
-			placeHolder: "Please enter the name of a apl file in the workspace folder",
-			value: "readme.md"
+			placeHolder: "Please enter the name of an APL file in the workspace folder",
+			value: "foo.aplf"
 		});
 	}));
 
