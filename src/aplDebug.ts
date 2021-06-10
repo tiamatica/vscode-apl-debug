@@ -10,6 +10,7 @@ import {
 	InvalidatedEvent,
 	Thread, StackFrame, Scope, Source, Handles, Breakpoint
 } from 'vscode-debugadapter';
+import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
 import { AplRuntime, IAplBreakpoint, FileAccessor } from './aplRuntime';
@@ -75,6 +76,17 @@ export class AplDebugSession extends LoggingDebugSession {
 		this._runtime = new AplRuntime(fileAccessor);
 
 		// setup event handlers
+		this._runtime.on('taskDialog', (opt) => {
+			vscode.window.showQuickPick(opt.buttonText, { title: opt.text }).then(
+				(selected) =>{
+					const index = opt.buttonText.indexOf(selected);
+					this._runtime.replyTaskDialog(index  < 0 ? -1 : 100 + index, opt.token);
+				},
+				(error) => {
+					this._runtime.replyTaskDialog(-1, opt.token);
+				}
+			);
+		});
 		this._runtime.on('stopOnEntry', () => {
 			this.sendEvent(new StoppedEvent('entry', AplDebugSession.threadID));
 		});
@@ -97,17 +109,9 @@ export class AplDebugSession extends LoggingDebugSession {
 		this._runtime.on('breakpointValidated', (bp: IAplBreakpoint) => {
 			this.sendEvent(new BreakpointEvent('changed', { verified: bp.verified, id: bp.id } as DebugProtocol.Breakpoint));
 		});
-		this._runtime.on('output', (text, filePath, line, column) => {
+		this._runtime.on('output', (text, filePath) => {
 			const e: DebugProtocol.OutputEvent = new OutputEvent(text);
-
-			if (text === 'start' || text === 'startCollapsed' || text === 'end') {
-				e.body.group = text;
-				e.body.output = `group-${text}\n`;
-			}
-
 			e.body.source = this.createSource(filePath);
-			// e.body.line = this.convertDebuggerLineToClient(line);
-			// e.body.column = this.convertDebuggerColumnToClient(column);
 			this.sendEvent(e);
 		});
 		this._runtime.on('end', () => {

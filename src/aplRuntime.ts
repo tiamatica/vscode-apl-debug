@@ -377,40 +377,16 @@ export class AplRuntime extends EventEmitter {
 		// (t === 2 || t === 4) && ide.wins[0].focus(); // ⎕ / ⍞ input
 		// t === 1 && ide.getStats();
 		if (t === 1 && this.bannerDone === 0) {
-			// this.exec(0, `{}2 ⎕FIX 'file://${this._sourceFile}'`);
 			this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`);
-			this.exec(this._trace ? 1 : 0, '⍎name\n');
-			
-		// arrange for the banner to appear at the top of the session window
-		this.bannerDone = 1;
-		// const { me } = ide.wins[0];
-		// me.focus();
-		// if (!D.spawned) return;
-		// const txt = me.getValue().split('\n');
-		// let i = txt.length;
-		// while (--i) { if (/^Dyalog APL/.test(txt[i])) break; }
-		// setTimeout(() => {
-		// 	me.revealRangeAtTop(new monaco.Range(i + 1, 1, i + 1, 1));
-		// 	me.setPosition({ ...me.getPosition(), column: 7 });
-		// }, 1);
+			this.exec(this._trace ? 1 : 0, '⍎name');
+			this.bannerDone = 1;
 		}
 	}
 		
 	private HadError() {
-		// On error interpreter may open a new tracer window within a goldenlayout container
-		// and if configured, code formatted by interpretter.
-		// Each of these will set the focus on the new window,
-		// but on error we want focus on SE.
-		// ide.pending.splice(0, ide.pending.length);
-		// const se = ide.wins['0'];
-		// se.focus();
-		// // set timer in case no new window is opened
-		// se.hadErrTmr = setTimeout(() => { ide.hadErr = -1; delete se.hadErrTmr; }, 100);
-		// // gl mounted + SetHighlightLine + ReplyFormatCode
-		// ide.hadErr = 2 + (D.prf.ilf() && D.prf.indentOnOpen());
 	}
 
-	private GotoWindow(x) { 
+	private GotoWindow(x) {
 		// const w = ide.wins[x.win]; 
 		// w && w.focus();
 	}
@@ -594,9 +570,7 @@ export class AplRuntime extends EventEmitter {
 		// });
 	}
 	private TaskDialog(x) {
-		// D.util.taskDialog(x, (r) => {
-		// D.send('ReplyTaskDialog', { index: r, token: x.token });
-		// });
+		this.sendEvent('taskDialog', x);
 	}
 	private ReplyClearTraceStopMonitor(x) {
 		// $.alert(`The following items were cleared:
@@ -697,6 +671,13 @@ export class AplRuntime extends EventEmitter {
 	 */
 	 public execute(expr: string) {
 		this.exec(0, expr);
+	}
+
+	/**
+	 * Reply to TaskDialog
+	 */
+	 public replyTaskDialog(index: number, token: number) {
+		this.send('ReplyTaskDialog', { index, token });
 	}
 
 	/**
