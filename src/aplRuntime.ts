@@ -54,7 +54,7 @@ interface RideMessage {
  */
 export class AplRuntime extends EventEmitter {
 
-	// the initial (and one and only) file we are 'debugging'
+	// the initial file we are debugging
 	private _sourceFile: string = '';
 	public get sourceFile() {
 		return this._sourceFile;
@@ -84,7 +84,6 @@ export class AplRuntime extends EventEmitter {
 	private _otherExceptions = false;
 	
 	private _client?: Net.Socket;
-	// private _server?: Net.Server;
 
 	private _exe = 'dyalog.exe';
 	private _child?: cp.ChildProcess;
@@ -112,11 +111,12 @@ export class AplRuntime extends EventEmitter {
 		this._trace = stopOnEntry;
 
 		this.launchDyalog();
-		
-		await this.loadSource(program);
-		this._currentLine = -1;
+		if (program) {
+			await this.loadSource(program);
+			this._currentLine = -1;
+			await this.verifyBreakpoints(this._sourceFile);
+		}
 
-		await this.verifyBreakpoints(this._sourceFile);
 	}
 
 	private launchDyalog(): void {
@@ -167,7 +167,6 @@ export class AplRuntime extends EventEmitter {
 			  this.err(y);
 			});
 		  });
-		// this._server = srv;
 	}
 
 	private err(e: Error | string): void {
@@ -377,9 +376,13 @@ export class AplRuntime extends EventEmitter {
 		// (t === 2 || t === 4) && ide.wins[0].focus(); // ⎕ / ⍞ input
 		// t === 1 && ide.getStats();
 		if (t === 1 && this.bannerDone === 0) {
-			this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`);
-			this.exec(this._trace ? 1 : 0, '⍎name');
 			this.bannerDone = 1;
+			if (this._sourceFile) {
+				this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`);
+				this.exec(this._trace ? 1 : 0, '⍎name');
+			} else {
+				this.exec(0, `⎕SE.Link.Create # '${this._folder}'`);
+			}
 		}
 	}
 		
@@ -395,8 +398,9 @@ export class AplRuntime extends EventEmitter {
 		// return ide.wins[x.win].setTC(x.tracer); 
 	}
 	private ReplyGetAutocomplete(x) { 
-		// const w = ide.wins[x.token]; 
-		// w && w.processAutocompleteReply(x); 
+		if (this._autocompletion) {
+			this._autocompletion.resolve(x.options);
+		}
 	}
 	private ReplyGetHelpInformation(x) {
 		// if (x.url.length === 0) ide.getHelpExecutor.reject('No help found');
@@ -673,6 +677,17 @@ export class AplRuntime extends EventEmitter {
 		this.exec(0, expr);
 	}
 
+	private _autocompletion: any;
+	/**
+	 * Reply to TaskDialog
+	 */
+	public getAutocomplete(line: string, pos: number, token: number): PromiseLike<string[]> {
+		return new Promise((resolve, reject) => {
+			this._autocompletion = { resolve, reject };
+			this.send('GetAutocomplete', { line, pos, token });
+		});
+	}
+
 	/**
 	 * Reply to TaskDialog
 	 */
@@ -695,22 +710,11 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	/**
-	 * "Step into" for APL debug means: go to next character
+	 * Step into
 	 */
 	public stepIn(targetId: number | undefined) {
-		if (typeof targetId === 'number') {
-			this._currentColumn = targetId;
-			this.sendEvent('stopOnStep');
-		} else {
-			if (typeof this._currentColumn === 'number') {
-				if (this._currentColumn <= this._sourceLines[this._currentLine].length) {
-					this._currentColumn += 1;
-				}
-			} else {
-				this._currentColumn = 1;
-			}
-			this.sendEvent('stopOnStep');
-		}
+		this.sendEvent('stopOnStep');
+		
 	}
 
 	/**

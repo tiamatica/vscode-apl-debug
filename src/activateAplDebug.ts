@@ -157,7 +157,7 @@ class AplConfigurationProvider implements vscode.DebugConfigurationProvider {
 			}
 		}
 
-		if (!config.program) {
+		if (!config.program && !config.cwd) {
 			return vscode.window.showInformationMessage("Cannot find a program to debug").then(_ => {
 				return undefined;	// abort launch
 			});
