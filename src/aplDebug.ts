@@ -16,9 +16,9 @@ import { basename } from 'path';
 import { AplRuntime, IAplBreakpoint, FileAccessor } from './aplRuntime';
 import { Subject } from 'await-notify';
 
-function timeout(ms: number) {
-	return new Promise(resolve => setTimeout(resolve, ms));
-}
+// function timeout(ms: number) {
+// 	return new Promise(resolve => setTimeout(resolve, ms));
+// }
 
 /**
  * This interface describes the apl-debug specific launch attributes
@@ -52,12 +52,6 @@ export class AplDebugSession extends LoggingDebugSession {
 	private _configurationDone = new Subject();
 
 	private _cancelationTokens = new Map<number, boolean>();
-	private _isLongrunning = new Map<number, boolean>();
-
-	private _reportProgress = false;
-	private _progressId = 10000;
-	private _cancelledProgressId: string | undefined = undefined;
-	private _isProgressCancellable = true;
 
 	private _showHex = false;
 	private _useInvalidatedEvent = false;
@@ -130,7 +124,7 @@ export class AplDebugSession extends LoggingDebugSession {
 	protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
 
 		if (args.supportsProgressReporting) {
-			this._reportProgress = true;
+			// this._reportProgress = true;
 		}
 		if (args.supportsInvalidatedEvent) {
 			this._useInvalidatedEvent = true;
@@ -320,9 +314,9 @@ export class AplDebugSession extends LoggingDebugSession {
 
 	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
 
-		const startFrame = typeof args.startFrame === 'number' ? args.startFrame : 0;
-		const maxLevels = typeof args.levels === 'number' ? args.levels : 1000;
-		const endFrame = startFrame + maxLevels;
+		// const startFrame = typeof args.startFrame === 'number' ? args.startFrame : 0;
+		// const maxLevels = typeof args.levels === 'number' ? args.levels : 1000;
+		// const endFrame = startFrame + maxLevels;
 	
 		this._runtime.getSIStack()
 		.then((stk) => {
@@ -403,7 +397,7 @@ export class AplDebugSession extends LoggingDebugSession {
 
 	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
 
-		let reply: string | undefined = undefined;
+		// let reply: string | undefined = undefined;
 
 		if (args.context === 'repl') {
 			this._runtime.execute(args.expression);
@@ -480,7 +474,7 @@ export class AplDebugSession extends LoggingDebugSession {
 			this._cancelationTokens.set(args.requestId, true);
 		}
 		if (args.progressId) {
-			this._cancelledProgressId= args.progressId;
+			// this._cancelledProgressId= args.progressId;
 		}
 	}
 

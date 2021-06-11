@@ -80,8 +80,8 @@ export class AplRuntime extends EventEmitter {
 	private _trace = false;
 	private _folder = '';
 
-	private _namedException: string | undefined;
-	private _otherExceptions = false;
+	// private _namedException: string | undefined;
+	// private _otherExceptions = false;
 	
 	private _client?: Net.Socket;
 
@@ -325,13 +325,13 @@ export class AplRuntime extends EventEmitter {
 		this.send('Execute', { trace, text: `${expression}\n` });
 	}
 	
-	private remoteIdentification?: object;
-	private isClassic?: boolean;
+	// private remoteIdentification?: object;
+	// private isClassic?: boolean;
 
 	// RIDE protocol message handlers
 	private Identify(x) {
-		this.remoteIdentification = x;
-		this.isClassic = x.arch[0] === 'C';
+		// this.remoteIdentification = x;
+		// this.isClassic = x.arch[0] === 'C';
 		// if (this.isClassic) {
 		// Object.keys(this.bq).forEach((k) => {
 		// 	const sysfn = `u${this.bq[k].codePointAt(0).toString(16)}`;
@@ -909,8 +909,8 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	public setExceptionsFilters(namedException: string | undefined, otherExceptions: boolean): void {
-		this._namedException = namedException;
-		this._otherExceptions = otherExceptions;
+		// this._namedException = namedException;
+		// this._otherExceptions = otherExceptions;
 	}
 
 	/*

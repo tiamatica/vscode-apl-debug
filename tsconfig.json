@@ -16,7 +16,7 @@
 
 		"noImplicitAny": false,
 		"removeComments": false,
-		"noUnusedLocals": true,
+		"noUnusedLocals": false,
 		"noImplicitThis": true,
 		"inlineSourceMap": false,
 		"preserveConstEnums": true,
