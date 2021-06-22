@@ -8,7 +8,7 @@
 			"type": "apl",
 			"request": "launch",
 			"name": "Debug current file",
-			"program": "${workspaceFolder}/test.aplf",
+			"program": "${file}",
 			"cwd": "${workspaceFolder}",
 			"stopOnEntry": true,
 			"trace": false
