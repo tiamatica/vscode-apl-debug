@@ -1,5 +1,5 @@
 /*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
+ * Copyright (C) Tiamatica. All rights reserved.
  *--------------------------------------------------------*/
 
 import {
@@ -211,6 +211,15 @@ export class AplDebugSession extends LoggingDebugSession {
 		// start the program in the runtime
 		await this._runtime.start(args.program, args.cwd, !!args.stopOnEntry, !!args.noDebug);
 
+		this.sendResponse(response);
+	}
+	protected async disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments, request?: DebugProtocol.Request) {
+		await this._runtime.terminate();
+		this.sendResponse(response);
+	}
+    
+	protected async terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request) {
+		await this._runtime.terminate();
 		this.sendResponse(response);
 	}
 

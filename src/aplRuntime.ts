@@ -1,11 +1,10 @@
 /*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
+ * Copyright (C) Tiamatica. All rights reserved.
  *--------------------------------------------------------*/
 
 import { EventEmitter } from 'events';
 import * as cp from 'child_process';
 import * as Net from 'net';
-// import { Interface } from 'readline';
 
 export interface FileAccessor {
 	readFile(path: string): Promise<string>;
@@ -82,12 +81,12 @@ export class AplRuntime extends EventEmitter {
 
 	// private _namedException: string | undefined;
 	// private _otherExceptions = false;
-	
+
 	private _client?: Net.Socket;
 
 	private _exe = 'dyalog.exe';
 	private _child?: cp.ChildProcess;
-	
+
 	private promptType = 0;
 	private mq: Array<RideMessage> = []; // mq:message queue
 	private blk = 0; // blk:blocked?
@@ -98,7 +97,7 @@ export class AplRuntime extends EventEmitter {
 	private _linkRE: RegExp; // start time of debug session
 
 	private maxl = 1000;
-	
+
 	constructor(private _fileAccessor: FileAccessor) {
 		super();
 		this._startTime = Date.now();
@@ -122,14 +121,26 @@ export class AplRuntime extends EventEmitter {
 		}
 
 	}
+	
+	private _terminate: any;
+	/**
+	 * Stop debug session.
+	 */
+	public async terminate(): Promise<void> {
+		return new Promise((resolve, reject) => {
+			this._terminate = { resolve, reject };
+			this.send('Exit', { code: 0 });
+		});
+
+	}
 
 	private launchDyalog(): void {
 		const env = {
-            APLK0: 'default',
-            AUTOCOMPLETE_PREFIXSIZE: '0',
-            CLASSICMODE: '1',
-            SINGLETRACE: '1',
-            RIDE_SPAWNED: '1',
+			APLK0: 'default',
+			AUTOCOMPLETE_PREFIXSIZE: '0',
+			CLASSICMODE: '1',
+			SINGLETRACE: '1',
+			RIDE_SPAWNED: '1',
 		};
 
 		let srv = Net.createServer((y) => {
@@ -137,11 +148,11 @@ export class AplRuntime extends EventEmitter {
 			srv && srv.close();
 			this._client = y;
 			this.initInterpreterConn();
-		  });
-		  srv.on('error', (e) => {
+		});
+		srv.on('error', (e) => {
 			this.err(e);
-		  });
-		  srv.listen(0, '127.0.0.1', () => {
+		});
+		srv.listen(0, '127.0.0.1', () => {
 			const adr = srv.address() as Net.AddressInfo;
 			const hp = `${adr.address}:${adr.port}`;
 			this.log(`listening for connections from spawned interpreter on ${hp}`);
@@ -150,27 +161,27 @@ export class AplRuntime extends EventEmitter {
 			const stdio: cp.StdioOptions = ['pipe', 'ignore', 'ignore'];
 			if (/^win/i.test(process.platform)) { args = []; stdio[0] = 'ignore'; }
 			try {
-			  this._child = cp.spawn(this._exe, args, {
-				stdio,
-				detached: true,
-				env: {
-				  ...process.env,
-				  ...env,
-				  RIDE_INIT: `CONNECT:${hp}`,
-				},
-			  });
+				this._child = cp.spawn(this._exe, args, {
+					stdio,
+					detached: true,
+					env: {
+						...process.env,
+						...env,
+						RIDE_INIT: `CONNECT:${hp}`,
+					},
+				});
 			} catch (e) { this.err(e); return; }
 			this._child.on('exit', (code, sig) => {
-			  srv && srv.close();
-			  if (code !== 0) {
-				this.err(`Interpreter ${code != null ? `exited with code ${code}` : `received ${sig}`}`);
-			  }
+				srv && srv.close();
+				if (code !== 0) {
+					this.err(`Interpreter ${code !== null ? `exited with code ${code}` : `received ${sig}`}`);
+				}
 			});
 			this._child.on('error', (y) => {
-			  srv && srv.close();
-			  this.err(y);
+				srv && srv.close();
+				this.err(y);
 			});
-		  });
+		});
 	}
 
 	private err(e: Error | string): void {
@@ -180,8 +191,8 @@ export class AplRuntime extends EventEmitter {
 	private log(msg: String): void {
 		console.log(msg);
 	}
-	
-	
+
+
 	private initInterpreterConn(): void {
 		let b = Buffer.alloc(0x100000);
 		let ib = 0; // ib:offset in b
@@ -190,62 +201,61 @@ export class AplRuntime extends EventEmitter {
 		let handshakeDone = false;
 		const trunc = (x: string) => (x.length > this.maxl ? `${x.slice(0, this.maxl - 3)}...` : x);
 		this._client?.on('data', (x) => {
-		  if (nb + x.length > b.length) {
-			const r = Buffer.alloc(2 ** Math.ceil(Math.log(nb + x.length) / Math.log(2)));
-			b.copy(r, 0, ib, ib + nb);
-			ib = 0;
-			b = r;
-			this.log(`resized recv buffer to ${b.length}`);
-		  } else if (ib + nb + x.length > b.length) {
-			b.copy(b, 0, ib, ib + nb);
-			ib = 0;
-		  }
-		  x.copy(b, ib + nb, 0, x.length);
-		  nb += x.length;
-		  let n; // message length
-		  while (nb >= 4 && (n = b.readInt32BE(ib)) <= nb) {
-			if (n <= 8) { this.err('Bad protocol message'); break; }
-			const m = `${b.slice(ib + 8, ib + n)}`;
-			ib += n;
-			nb -= n;
-			this.log(`recv ${trunc(m)}`);
-			if (m[0] === '[') {
-			  const u = JSON.parse(m);
-			  this.recv(u[0], u[1]);
-			} else if (m[0] === '<' && !old) {
-			  old = 1;
-			  this.err('This version of RIDE cannot talk to interpreters older than v15.0');
-			} else if (/^UsingProtocol=/.test(m)) {
-			  if (m.slice(m.indexOf('=') + 1) === '2') {
-				handshakeDone = true;
-			  } else {
-				this.err('Unsupported RIDE protocol version');
-				break;
-			  }
+			if (nb + x.length > b.length) {
+				const r = Buffer.alloc(2 ** Math.ceil(Math.log(nb + x.length) / Math.log(2)));
+				b.copy(r, 0, ib, ib + nb);
+				ib = 0;
+				b = r;
+				this.log(`resized recv buffer to ${b.length}`);
+			} else if (ib + nb + x.length > b.length) {
+				b.copy(b, 0, ib, ib + nb);
+				ib = 0;
 			}
-		  }
+			x.copy(b, ib + nb, 0, x.length);
+			nb += x.length;
+			let n; // message length
+			while (nb >= 4 && (n = b.readInt32BE(ib)) <= nb) {
+				if (n <= 8) { this.err('Bad protocol message'); break; }
+				const m = `${b.slice(ib + 8, ib + n)}`;
+				ib += n;
+				nb -= n;
+				this.log(`recv ${trunc(m)}`);
+				if (m[0] === '[') {
+					const u = JSON.parse(m);
+					this.recv(u[0], u[1]);
+				} else if (m[0] === '<' && !old) {
+					old = 1;
+					this.err('This version of RIDE cannot talk to interpreters older than v15.0');
+				} else if (/^UsingProtocol=/.test(m)) {
+					if (m.slice(m.indexOf('=') + 1) === '2') {
+						handshakeDone = true;
+					} else {
+						this.err('Unsupported RIDE protocol version');
+						break;
+					}
+				}
+			}
 		});
-		this._client?.on('error', (x) => { 
+		this._client?.on('error', (x) => {
 			this._client && this.err(x);
 		});
 		this._client?.on('end', () => {
-		  if (handshakeDone) {
-			this.log('interpreter disconnected');
-			this.sendEvent('end');
-		  } else {
-			this.err('Either no interpreter is listening on the specified port'
-			 + ' or the interpreter is already serving another RIDE client.');
-		  }
+			if (handshakeDone) {
+				this.log('interpreter disconnected');
+				this.sendEvent('end');
+			} else {
+				this.err('Either no interpreter is listening on the specified port'
+					+ ' or the interpreter is already serving another RIDE client.');
+			}
 		});
 		this.sendEach([
-		  'SupportedProtocols=2', 'UsingProtocol=2',
-		  '["Identify",{"identity":1}]', '["Connect",{"remoteId":2}]', '["GetWindowLayout",{}]',
-		  '["Subscribe",{"status":["statusfields","stack","threads"]}]'
+			'SupportedProtocols=2', 'UsingProtocol=2',
+			'["Identify",{"identity":1}]', '["Connect",{"remoteId":2}]', '["GetWindowLayout",{}]',
+			'["Subscribe",{"status":["statusfields","stack","threads"]}]'
 		]);
 	}
 
 	private rd() { // run down the queue
-		this.log('rd');
 		while (this.mq.length && !this.blk) {
 			const a = this.mq.shift() || ['', {}]; // a[0]:command name, a[1]:command args
 			if (a[0] === 'AppendSessionOutput') { // special case: batch sequences of AppendSessionOutput together
@@ -266,15 +276,14 @@ export class AplRuntime extends EventEmitter {
 		this.last = +new Date();
 		this.tid = 0;
 	}
-	
+
 	private _linkInfo: string[][] = [];
 	private add(text: string) {
 		let m;
 		let output = true;
-		while(m = this._linkRE.exec(text))
-		{
+		while (m = this._linkRE.exec(text)) {
 			output = false;
-			const json = m[1].replace(/\n\s+/,'');
+			const json = m[1].replace(/\n\s+/, '');
 			this._linkInfo.push(JSON.parse(json));
 		}
 		if (output) {
@@ -283,8 +292,7 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private rrd() { // request rundown
-		this.log('rrd');
-		if(!this.tid) {
+		if (!this.tid) {
 			if (Date.now() - this.last < 20) {
 				this.tid = +setTimeout(() => { this.rd(); }, 20);
 			} else {
@@ -293,45 +301,45 @@ export class AplRuntime extends EventEmitter {
 		}
 	}
 
-	private recv(x: string, y) { 
+	private recv(x: string, y) {
 		this.mq.push([x, y]);
-		this.rrd(); 
+		this.rrd();
 	}
-	
+
 	private trunc = (x) => (x.length > this.maxl ? `${x.slice(0, this.maxl - 3)}...` : x);
-  	
+
 	private toBuf(x) {
-    	const b = Buffer.from(`xxxxRIDE${x}`);
-    	b.writeInt32BE(b.length, 0);
-    	return b;
-  	}
-  
+		const b = Buffer.from(`xxxxRIDE${x}`);
+		b.writeInt32BE(b.length, 0);
+		return b;
+	}
+
 
 	private sendEach(x: Array<string>) {
 		if (this._client) {
-		  x.forEach((y) => this.log(`send ${this.trunc(y)}`));
-		  this._client.write(Buffer.concat(x.map(this.toBuf)));
+			x.forEach((y) => this.log(`send ${this.trunc(y)}`));
+			this._client.write(Buffer.concat(x.map(this.toBuf)));
 		}
 	}
-	
+
 	private send(x: string, y: object) {
 		if (this.promptType
-		  || /Interrupt$|TreeList|Reply|FormatCode|GetAutocomplete|SaveChanges|CloseWindow|Exit/.test(x)) {
+			|| /Interrupt$|TreeList|Reply|FormatCode|GetAutocomplete|SaveChanges|CloseWindow|Exit/.test(x)) {
 			this.sendEach([JSON.stringify([x, y])]);
 		}
 	}
-	
+
 	private exec(trace: number, expression: string) {
 		this.send('Execute', { trace, text: `${expression}\n` });
 	}
-	
-	// private remoteIdentification?: object;
-	// private isClassic?: boolean;
+
+	private remoteIdentification?: object;
+	private isClassic?: boolean;
 
 	// RIDE protocol message handlers
 	private Identify(x) {
-		// this.remoteIdentification = x;
-		// this.isClassic = x.arch[0] === 'C';
+		this.remoteIdentification = x;
+		this.isClassic = x.arch[0] === 'C';
 		// if (this.isClassic) {
 		// Object.keys(this.bq).forEach((k) => {
 		// 	const sysfn = `u${this.bq[k].codePointAt(0).toString(16)}`;
@@ -342,7 +350,7 @@ export class AplRuntime extends EventEmitter {
 		// 	if (this.syntax.sysfns_classic.includes(sysfn)) p.text = `⎕${sysfn}`;
 		// });
 		// }
-		
+
 		// this.InitHelp(x.version);
 		// ide.updTitle();
 		// ide.connected = 1;
@@ -350,38 +358,41 @@ export class AplRuntime extends EventEmitter {
 		// clearTimeout(this.tmr);
 		// delete this.tmr;
 	}
-		
-	private InvalidSyntax() { 
-		this.err('Invalid syntax.'); 
+
+	private InvalidSyntax() {
+		this.err('Invalid syntax.');
 	}
-	
+
 	private Disconnect(x) {
-		this.err('Interpreter disconnected: ' + x.message); 
+		if (this._terminate) {
+			this._terminate.resolve(x.message);
+		}
+		this.err('Interpreter disconnected: ' + x.message);
 		this.sendEvent('end');
 	}
 
-	private SysError(x) { 
-		this.err('SysError: ' + x.text); 
+	private SysError(x) {
+		this.err('SysError: ' + x.text);
 		this.sendEvent('end');
 	}
-	
-	private InternalError(x) { 
+
+	private InternalError(x) {
 		this.err(`An error (${x.error}) occurred processing ${x.message}`);
 	}
-	private NotificationMessage(x) { 
+	private NotificationMessage(x) {
 		// this.alert(x.message, 'Notification'); 
 	}
-		
+
 	private UpdateDisplayName(x) {
 		// this.wsid = x.displayName;
 		// this.updTitle();
 		// this.wse && this.wse.refresh();
 	}
 
-	private EchoInput(x) { 
-		this.add(x.input); 
+	private EchoInput(x: EchoInputMessage) {
+		this.add(x.input);
 	}
-	
+
 	private bannerDone = 0;
 
 	private SetPromptType(x) {
@@ -393,30 +404,29 @@ export class AplRuntime extends EventEmitter {
 		// t === 1 && ide.getStats();
 		if (t === 1 && this.bannerDone === 0) {
 			this.bannerDone = 1;
+			this.exec(0, `⎕SE.Link.Create # '${this._folder}'`);
+			this.exec(0, `'link${this._startTime}'∘{⎕←⍺,⍺,⍨⎕JSON⍕¨⍵}¨5177⌶⍬`);
 			if (this._sourceFile) {
 				this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`);
 				this.exec(this._trace ? 1 : 0, '⍎name');
-			} else {
-				this.exec(0, `⎕SE.Link.Create # '${this._folder}'`);
-				this.exec(0, `'link${this._startTime}'∘{⎕←⍺,⍺,⍨⎕JSON⍕¨⍵}¨5177⌶⍬`);
 			}
 		}
 	}
-	
+
 	private _hadError = 0;
 	private HadError(x) {
-		this._hadError = x.error; 
+		this._hadError = x.error;
 	}
 
 	private GotoWindow(x) {
 		// const w = ide.wins[x.win]; 
 		// w && w.focus();
 	}
-		
-	private WindowTypeChanged(x) { 
+
+	private WindowTypeChanged(x) {
 		// return ide.wins[x.win].setTC(x.tracer); 
 	}
-	private ReplyGetAutocomplete(x) { 
+	private ReplyGetAutocomplete(x) {
 		if (this._autocompletion) {
 			this._autocompletion.resolve(x.options);
 		}
@@ -443,10 +453,10 @@ export class AplRuntime extends EventEmitter {
 		// D.ParseSyntaxInformation(x);
 		// D.ipc && D.ipc.server.broadcast('syntax', D.syntax);
 	}
-	private ValueTip(x) { 
+	private ValueTip(x) {
 		// ide.wins[x.token].ValueTip(x); 
 	}
-	private SetHighlightLine(x) { 
+	private SetHighlightLine(x) {
 		this._currentLine = x.line;
 		this._currentColumn = undefined;
 		this.sendEvent(x.line === 0 ? 'stopOnEntry' : 'stopOnStep');
@@ -459,7 +469,7 @@ export class AplRuntime extends EventEmitter {
 		// const w = ide.wins[x.token];
 		// w && w.update(x);
 	}
-	private ReplySaveChanges(x) { 
+	private ReplySaveChanges(x) {
 		// const w = ide.wins[x.win]; w && w.saved(x.err); 
 	}
 	private CloseWindow(x) {
@@ -607,10 +617,11 @@ export class AplRuntime extends EventEmitter {
 		// ${x.monitors} monitors`, 'Clear all trace/stop/monitor');
 	}
 	private ReplyGetSIStack(x) {
+		this.log('getSIStack');
 		if (this._siStack) {
 			const frames: IStackFrame[] = x.stack.map((s, i) => {
 				const m = /(.*)\[(\d+)\]/.exec(s.description) || [];
-				const link = this._linkInfo.find(x=> `${x[1]}.${x[0]}` === m[1]) || [];
+				const link = this._linkInfo.find(x => `${x[1]}.${x[0]}` === m[1]) || [];
 				const frame: IStackFrame = {
 					index: i,
 					name: m[1],
@@ -664,7 +675,7 @@ export class AplRuntime extends EventEmitter {
 		// 	if (c.name === 'AUTO_PAUSE_THREADS') D.prf.pauseOnError(c.value === '1');
 		// });
 	}
-	private ReplyTreeList(x) { 
+	private ReplyTreeList(x) {
 		// ide.wse.replyTreeList(x); 
 	}
 	private StatusOutput(x) {
@@ -686,9 +697,8 @@ export class AplRuntime extends EventEmitter {
 		// }
 		// w.webContents.executeJavaScript(`add(${JSON.stringify(x)})`);
 	}
-	private ReplyGetLog(x) { 
-		this.add(x.result.join('\n')); 
-		// this.bannerDone = 0; 
+	private ReplyGetLog(x) {
+		this.add(x.result.join('\n'));
 	}
 	private UnknownCommand(x) {
 		// if (x.name === 'ClearTraceStopMonitor') {
@@ -714,7 +724,7 @@ export class AplRuntime extends EventEmitter {
 	/**
 	 * Execute expression
 	 */
-	 public execute(expr: string) {
+	public execute(expr: string) {
 		this.exec(0, expr);
 	}
 
@@ -743,7 +753,7 @@ export class AplRuntime extends EventEmitter {
 	/**
 	 * Reply to TaskDialog
 	 */
-	 public replyTaskDialog(index: number, token: number) {
+	public replyTaskDialog(index: number, token: number) {
 		this.send('ReplyTaskDialog', { index, token });
 	}
 
@@ -765,8 +775,9 @@ export class AplRuntime extends EventEmitter {
 	 * Step into
 	 */
 	public stepIn(targetId: number | undefined) {
+		this.send('StepInto', { win: this._winId });
 		this.sendEvent('stopOnStep');
-		
+
 	}
 
 	/**
@@ -806,34 +817,6 @@ export class AplRuntime extends EventEmitter {
 				label: `target: ${c}`
 			};
 		});
-	}
-
-	/**
-	 * Returns a fake 'stacktrace' where every 'stackframe' is a word from the current line.
-	 */
-	public stack(startFrame: number, endFrame: number): IStack {
-
-		const words = this._sourceLines[this._currentLine].trim().split(/\s+/);
-
-		const frames = new Array<IStackFrame>();
-		// every word of the current line becomes a stack frame.
-		for (let i = startFrame; i < Math.min(endFrame, words.length); i++) {
-			const name = words[i];	// use a word of the line as the stackframe name
-			const stackFrame: IStackFrame = {
-				index: i,
-				name: `${name}(${i})`,
-				file: this._sourceFile,
-				line: this._currentLine
-			};
-			if (typeof this._currentColumn === 'number') {
-				stackFrame.column = this._currentColumn;
-			}
-			frames.push(stackFrame);
-		}
-		return {
-			frames: frames,
-			count: words.length
-		};
 	}
 
 	public getBreakpoints(path: string, line: number): number[] {
@@ -980,7 +963,7 @@ export class AplRuntime extends EventEmitter {
 		}
 	}
 
-	private sendEvent(event: string, ... args: any[]) {
+	private sendEvent(event: string, ...args: any[]) {
 		setImmediate(_ => {
 			this.emit(event, ...args);
 		});

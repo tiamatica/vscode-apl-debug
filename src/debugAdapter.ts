@@ -1,5 +1,5 @@
 /*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
+ * Copyright (C) Tiamatica. All rights reserved.
  *--------------------------------------------------------*/
 
 import { AplDebugSession } from './aplDebug';
