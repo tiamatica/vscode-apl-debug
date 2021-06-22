@@ -1,5 +1,5 @@
-foo;a
-⎕←a←'foo'
-⎕←b←'42'
-⎕←a,b
-goo
+ foo;a
+ ⎕←a←'foo'
+ ⎕←b←'42'
+ ⎕←a,b
+ goo
