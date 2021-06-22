@@ -1,8 +1,8 @@
 {
   "name": "apl-debug",
   "displayName": "APL Debug",
-  "version": "0.1.0",
-  "publisher": "tiamatica",
+  "version": "0.1.1",
+  "publisher": "Tiamatica",
   "description": "APL debug adapter for VS Code.",
   "author": {
     "email": "gil@tiamatica.com",

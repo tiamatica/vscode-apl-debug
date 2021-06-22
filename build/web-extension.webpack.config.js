@@ -41,6 +41,10 @@ module.exports = /** @type WebpackConfig */ {
 			}]
 		}]
 	},
+	node: {
+		child_process: "empty",
+		net: "empty",
+	},
 	externals: {
 		'vscode': 'commonjs vscode', // ignored because it doesn't exist
 	},
