@@ -5,6 +5,7 @@
 import { EventEmitter } from 'events';
 import * as cp from 'child_process';
 import * as Net from 'net';
+import { Subject } from 'await-notify';
 
 export interface FileAccessor {
 	readFile(path: string): Promise<string>;
@@ -45,13 +46,6 @@ export class AplRuntime extends EventEmitter {
 		return this._sourceFile;
 	}
 
-	// the contents (= lines) of the one and only file
-	private _sourceLines: string[] = [];
-
-	// This is the next line that will be 'executed'
-	private _currentLine = 0;
-	private _currentColumn: number | undefined;
-
 	// maps from sourceFile to array of APL breakpoints
 	private _breakPoints = new Map<string, IAplBreakpoint[]>();
 
@@ -64,9 +58,6 @@ export class AplRuntime extends EventEmitter {
 	private _noDebug = false;
 	private _trace = false;
 	private _folder = '';
-
-	// private _namedException: string | undefined;
-	// private _otherExceptions = false;
 
 	private _client?: Net.Socket;
 
@@ -81,6 +72,8 @@ export class AplRuntime extends EventEmitter {
 	private _winId = 0; // current window id
 	private _startTime = 0; // start time of debug session
 	private _linkRE: RegExp; // start time of debug session
+	private _sessionReady = new Subject();
+	private _windows: OpenWindowMessage[] = [];
 
 	private maxl = 1000;
 
@@ -96,14 +89,22 @@ export class AplRuntime extends EventEmitter {
 	public async start(program: string, folder: string, stopOnEntry: boolean, noDebug: boolean): Promise<void> {
 
 		this._noDebug = noDebug;
+		this._sourceFile = program;
 		this._folder = folder;
 		this._trace = stopOnEntry;
 
 		this.launchDyalog();
-		if (program) {
-			await this.loadSource(program);
-			this._currentLine = -1;
-			await this.verifyBreakpoints(this._sourceFile);
+		await this._sessionReady.wait();
+
+		if (this._folder) {
+			this.exec(0, `⎕SE.Link.Create # '${this._folder}'`);
+		}
+		if (this._sourceFile) {
+			this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`);
+		}
+		this.exec(0, `'link${this._startTime}'∘{⎕←⍺,⍺,⍨⎕JSON⍕¨⍵}¨5177⌶⍬`);
+		if (this._sourceFile) {
+			this.exec(this._trace ? 1 : 0, '⍎name');
 		}
 
 	}
@@ -416,12 +417,7 @@ export class AplRuntime extends EventEmitter {
 		// t === 1 && ide.getStats();
 		if (t === 1 && this.bannerDone === 0) {
 			this.bannerDone = 1;
-			this.exec(0, `⎕SE.Link.Create # '${this._folder}'`);
-			this.exec(0, `'link${this._startTime}'∘{⎕←⍺,⍺,⍨⎕JSON⍕¨⍵}¨5177⌶⍬`);
-			if (this._sourceFile) {
-				this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`);
-				this.exec(this._trace ? 1 : 0, '⍎name');
-			}
+			this._sessionReady.notify();
 		}
 	}
 
@@ -431,8 +427,7 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private gotoWindow(x: GotoWindowMessage) {
-		// const w = ide.wins[x.win]; 
-		// w && w.focus();
+		this.sendEvent('openWindow', { filename: this._windows[x.win].filename });
 	}
 
 	private windowTypeChanged(x: WindowTypeChangedMessage) {
@@ -469,8 +464,6 @@ export class AplRuntime extends EventEmitter {
 		// ide.wins[x.token].ValueTip(x); 
 	}
 	private setHighlightLine(x: SetHighlightLineMessage) {
-		this._currentLine = x.line;
-		this._currentColumn = undefined;
 		this.sendEvent(x.line === 0 ? 'stopOnEntry' : 'stopOnStep');
 		// const w = D.wins[x.win];
 		// w.SetHighlightLine(x.line, ide.hadErr);
@@ -478,6 +471,7 @@ export class AplRuntime extends EventEmitter {
 		// ide.focusWin(w);
 	}
 	private updateWindow(x: OpenWindowMessage) {
+		this._windows[x.token] = x;
 		// const w = ide.wins[x.token];
 		// w && w.update(x);
 	}
@@ -500,6 +494,7 @@ export class AplRuntime extends EventEmitter {
 		// w.tc && ide.getStats();
 	}
 	private openWindow(x: OpenWindowMessage) {
+		this._windows[x.token] = x;
 		this._winId = x.token;
 		this.sendEvent('openWindow', { filename: x.filename });
 		if (this._hadError === 1001) {
@@ -796,12 +791,6 @@ export class AplRuntime extends EventEmitter {
 	 * "Step out" for APL debug means: go to previous character
 	 */
 	public stepOut() {
-		if (typeof this._currentColumn === 'number') {
-			this._currentColumn -= 1;
-			if (this._currentColumn === 0) {
-				this._currentColumn = undefined;
-			}
-		}
 		this.sendEvent('stopOnStep');
 	}
 
@@ -811,22 +800,7 @@ export class AplRuntime extends EventEmitter {
 
 	public getBreakpoints(path: string, line: number): number[] {
 
-		const l = this._sourceLines[line];
-
-		let sawSpace = true;
-		const bps: number[] = [];
-		for (let i = 0; i < l.length; i++) {
-			if (l[i] !== ' ') {
-				if (sawSpace) {
-					bps.push(i);
-					sawSpace = false;
-				}
-			} else {
-				sawSpace = true;
-			}
-		}
-
-		return bps;
+		return [];
 	}
 
 	/*
@@ -871,22 +845,6 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	/*
-	 * Set data breakpoint.
-	 */
-	public setDataBreakpoint(address: string): boolean {
-		if (address) {
-			this._breakAddresses.add(address);
-			return true;
-		}
-		return false;
-	}
-
-	public setExceptionsFilters(namedException: string | undefined, otherExceptions: boolean): void {
-		// this._namedException = namedException;
-		// this._otherExceptions = otherExceptions;
-	}
-
-	/*
 	 * Clear all data breakpoints.
 	 */
 	public clearAllDataBreakpoints(): void {
@@ -894,14 +852,6 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	// private methods
-
-	private async loadSource(file: string): Promise<void> {
-		if (this._sourceFile !== file) {
-			this._sourceFile = file;
-			const contents = await this._fileAccessor.readFile(file);
-			this._sourceLines = contents.split(/\r?\n/);
-		}
-	}
 
 	/**
 	 * Run through the file.
@@ -929,25 +879,10 @@ export class AplRuntime extends EventEmitter {
 
 		const bps = this._breakPoints.get(path);
 		if (bps) {
-			await this.loadSource(path);
 			bps.forEach(bp => {
-				if (!bp.verified && bp.line < this._sourceLines.length) {
-					const srcLine = this._sourceLines[bp.line].trim();
-
-					// if a line is empty or starts with '+' we don't allow to set a breakpoint but move the breakpoint down
-					if (srcLine.length === 0 || srcLine.indexOf('+') === 0) {
-						bp.line++;
-					}
-					// if a line starts with '-' we don't allow to set a breakpoint but move the breakpoint up
-					if (srcLine.indexOf('-') === 0) {
-						bp.line--;
-					}
-					// don't set 'verified' to true if the line contains the word 'lazy'
-					// in this case the breakpoint will be verified 'lazy' after hitting it once.
-					if (srcLine.indexOf('lazy') < 0) {
-						bp.verified = true;
-						this.sendEvent('breakpointValidated', bp);
-					}
+				if (!bp.verified) {
+					bp.verified = true;
+					this.sendEvent('breakpointValidated', bp);				
 				}
 			});
 		}
