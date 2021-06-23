@@ -38,7 +38,8 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 					type: 'apl',
 					name: 'Debug File',
 					request: 'launch',
-					program: targetResource.fsPath
+					program: targetResource.fsPath,
+					stopOnEntry: true
 				});
 			}
 		}),
