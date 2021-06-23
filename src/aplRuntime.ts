@@ -34,19 +34,221 @@ interface IStack {
 	frames: IStackFrame[];
 }
 
-interface EchoInputMessage {
-	input: string;
-}
-
+/* eslint-disable  @typescript-eslint/naming-convention */
 interface AppendSessionOutputMessage {
 	result: string;
 }
-
+interface CloseWindowMessage {
+	win: number;
+}
+interface DisconnectMessage {
+	message: string;
+}
+interface EchoInputMessage {
+	input: string;
+}
+interface GotoWindowMessage {
+	win: number;
+}
+interface HadErrorMessage {
+	dmx: number;
+	error: number;
+}
+interface InterpreterStatusMessage {
+	CompactCount: number;
+	DQ: number;
+	GarbageCount: number;
+	IO: number;
+	ML: number;
+	NumThreads: number;
+	SI: number;
+	TID: number;
+	TRAP: number;
+	WA: number;
+}
+interface IdentifyMessage {
+	Port: number;
+	IPAddress: string;
+	Vendor: string;
+	Language: string;
+	version: string;
+	Machine: string;
+	arch: string;
+	Project: string;
+	Process: string;
+	User: string;
+	pid: number,
+	token: string;
+	date: string;
+	platform: string;
+}
+interface InternalErrorMessage {
+	error: number;
+	error_text: string;
+	dmx: string;
+	message: string;
+}
+interface NotificationMessage {
+	message: string;
+	token: number;
+}
+interface OpenWindowMessage {
+	currentRow: number;
+	debugger: number;
+	entityType: number;
+	filename: string;
+	monitor: number[];
+	name: string;
+	offset: number;
+	readOnly: number;
+	size: number;
+	stop: number[];
+	text: string[];
+	tid: number;
+	tname: string;
+	token: number;
+	trace: number[];
+}
+interface OptionsDialogMessage {
+	options: string[];
+	text: string;
+	title: string;
+	token: number;
+	type: number;
+}
+interface ReplyClearTraceStopMonitorMessage {
+	monitors: number;
+	stops: number;
+	token: number;
+	traces: number;
+}
+interface ReplyFormatCodeMessage {
+	win: number;
+	text: string[];
+}
+interface ReplyGetAutocompleteMessage {
+	options: string[];
+	skip: number;
+	token: number;
+}
+interface ReplyGetConfigurationMessage {
+	configurations: {
+		name: string;
+		value: string;
+	}[];
+}
+interface ReplyGetHelpInformationMessage {
+	url: string;
+}
+interface ReplyGetLanguageBarMessage {
+	entries: {
+		name: string;
+		avchar: string;
+		helptext: string;
+	}[];
+}
+interface ReplyGetLogMessage {
+	result: string[];
+}
+interface ReplyGetSIStackMessage {
+	stack: {
+		description: string;
+	}[];
+	tid: number;
+}
+interface ReplyGetSyntaxInformationMessage {
+	idioms: string[];
+}
+interface ReplyGetThreadsMessage {
+	threads: {
+		description: string;
+		state: string;
+		flags: string;
+		Treq: string;
+		tid: number;
+	}[];
+}
+interface ReplySaveChangesMessage {
+	err: number;
+	win: number;
+}
+interface ReplyTreeListMessage {
+	nodeId: number;
+	nodeIds: number[];
+	names: string[],
+    classes: number[];
+	err: string;
+}
+interface SetHighlightLineMessage {
+	line: number;
+	win: number;
+}
+interface SetPromptTypeMessage {
+	type: number;
+}
+interface ShowHTMLMessage {
+	title: string;
+	html: string;
+}
+interface StatusOutputMessage {
+	text: string;
+	flags: number;
+}
+interface StringDialogMessage {
+	defaultValue: string;
+	initialValue: string;
+	text: string;
+	title: string;
+	token: number;
+}
+interface SysErrorMessage {
+	text: string;
+	stack: string;
+}
+interface TaskDialogMessage {
+	buttonText: string[];
+	footer: string;
+	options: string[];
+	subtext: string;
+	text: string;
+	title: string;
+	token: number;
+}
+interface UnknownCommandMessage {
+	name: string;
+}
+interface UpdateDisplayNameMessage {
+	displayName: string;
+}
+interface ValueTipMessage {
+	class: number;
+	startCol: number;
+	endCol: number;
+	token: number;
+	tip: string[];
+}
+interface WindowTypeChangedMessage {
+	tracer: number;
+	win: number;
+}
 interface RideMessage {
 	length: 2;
 	0: string;
-	1: EchoInputMessage | AppendSessionOutputMessage;
+	1: AppendSessionOutputMessage | CloseWindowMessage | DisconnectMessage | EchoInputMessage |
+		GotoWindowMessage | HadErrorMessage |
+		IdentifyMessage | InterpreterStatusMessage | InternalErrorMessage |
+		NotificationMessage | OpenWindowMessage |
+		OptionsDialogMessage | ReplyClearTraceStopMonitorMessage | ReplyFormatCodeMessage |
+		ReplyGetAutocompleteMessage | ReplyGetConfigurationMessage |
+		ReplyGetHelpInformationMessage | ReplyGetLanguageBarMessage | ReplyGetLogMessage |
+		ReplyGetSIStackMessage | ReplyGetSyntaxInformationMessage | ReplyGetThreadsMessage |
+		ReplySaveChangesMessage | ReplyTreeListMessage | SetHighlightLineMessage |
+		StringDialogMessage | TaskDialogMessage |
+		SetPromptTypeMessage | ShowHTMLMessage | StatusOutputMessage |
+		SysErrorMessage | UnknownCommandMessage | UpdateDisplayNameMessage |
+		ValueTipMessage | WindowTypeChangedMessage;
 }
+/* eslint-enable  @typescript-eslint/naming-convention */
 
 /**
  * APL runtime with minimal debugger functionality.
@@ -135,6 +337,7 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private launchDyalog(): void {
+		/* eslint-disable  @typescript-eslint/naming-convention */
 		const env = {
 			APLK0: 'default',
 			AUTOCOMPLETE_PREFIXSIZE: '0',
@@ -142,6 +345,7 @@ export class AplRuntime extends EventEmitter {
 			SINGLETRACE: '1',
 			RIDE_SPAWNED: '1',
 		};
+		/* eslint-enable  @typescript-eslint/naming-convention */
 
 		let srv = Net.createServer((y) => {
 			this.log('spawned interpreter connected');
@@ -167,7 +371,7 @@ export class AplRuntime extends EventEmitter {
 					env: {
 						...process.env,
 						...env,
-						RIDE_INIT: `CONNECT:${hp}`,
+						RIDE_INIT: `CONNECT:${hp}`, // eslint-disable-line  @typescript-eslint/naming-convention 
 					},
 				});
 			} catch (e) { this.err(e); return; }
@@ -257,8 +461,8 @@ export class AplRuntime extends EventEmitter {
 
 	private rd() { // run down the queue
 		while (this.mq.length && !this.blk) {
-			const a = this.mq.shift() || ['', {}]; // a[0]:command name, a[1]:command args
-			if (a[0] === 'AppendSessionOutput') { // special case: batch sequences of AppendSessionOutput together
+			const a = this.mq.shift(); // a[0]:command name, a[1]:command args
+			if (a && a[0] === 'AppendSessionOutput') { // special case: batch sequences of AppendSessionOutput together
 				let s = (a[1] as AppendSessionOutputMessage).result;
 				const nq = Math.min(this.mq.length, 256);
 				let i: number;
@@ -268,13 +472,54 @@ export class AplRuntime extends EventEmitter {
 				}
 				i && this.mq.splice(0, i);
 				this.add(s);
-			} else {
-				const f = this[a[0]];
-				f ? f.apply(this, [a[1]]) : this.send('UnknownCommand', { name: a[0] });
+			} else if (a) {
+				this.handleMessage(a);
 			}
 		}
 		this.last = +new Date();
 		this.tid = 0;
+	}
+
+	private handleMessage(rideMessage: RideMessage) {
+		switch (rideMessage[0]) {
+			case 'CloseWindow': this.closeWindow(rideMessage[1] as CloseWindowMessage); break;
+			case 'Disconnect': this.disconnect(rideMessage[1] as DisconnectMessage); break;
+			case 'EchoInput': this.echoInput(rideMessage[1] as EchoInputMessage); break;
+			case 'GotoWindow': this.gotoWindow(rideMessage[1] as GotoWindowMessage); break;
+			case 'HadError': this.hadError(rideMessage[1] as HadErrorMessage); break;
+			case 'Identify': this.identify(rideMessage[1] as IdentifyMessage); break;
+			case 'InternalError': this.internalError(rideMessage[1] as InternalErrorMessage); break;
+			case 'InterpreterStatus': this.interpreterStatus(rideMessage[1] as InterpreterStatusMessage); break;
+			case 'InvalidSyntax': this.invalidSyntax(); break;
+			case 'NotificationMessage': this.notificationMessage(rideMessage[1] as NotificationMessage); break;
+			case 'OpenWindow': this.openWindow(rideMessage[1] as OpenWindowMessage); break;
+			case 'OptionsDialog': this.optionsDialog(rideMessage[1] as OptionsDialogMessage); break;
+			case 'ReplyClearTraceStopMonitor': this.replyClearTraceStopMonitor(rideMessage[1] as ReplyClearTraceStopMonitorMessage); break;
+			case 'ReplyFormatCode': this.replyFormatCode(rideMessage[1] as ReplyFormatCodeMessage); break;
+			case 'ReplyGetAutocomplete': this.replyGetAutocomplete(rideMessage[1] as ReplyGetAutocompleteMessage); break;
+			case 'ReplyGetConfiguration': this.replyGetConfiguration(rideMessage[1] as ReplyGetConfigurationMessage); break;
+			case 'ReplyGetHelpInformation': this.replyGetHelpInformation(rideMessage[1] as ReplyGetHelpInformationMessage); break;
+			case 'ReplyGetLanguageBar': this.replyGetLanguageBar(rideMessage[1] as ReplyGetLanguageBarMessage); break;
+			case 'ReplyGetLog': this.replyGetLog(rideMessage[1] as ReplyGetLogMessage); break;
+			case 'ReplyGetSIStack': this.replyGetSIStack(rideMessage[1] as ReplyGetSIStackMessage); break;
+			case 'ReplyGetSyntaxInformation': this.replyGetSyntaxInformation(rideMessage[1] as ReplyGetSyntaxInformationMessage); break;
+			case 'ReplyGetThreads': this.replyGetThreads(rideMessage[1] as ReplyGetThreadsMessage); break;
+			case 'ReplySaveChanges': this.replySaveChanges(rideMessage[1] as ReplySaveChangesMessage); break;
+			case 'ReplyTreeList': this.replyTreeList(rideMessage[1] as ReplyTreeListMessage); break;
+			case 'ShowHTML': this.showHTML(rideMessage[1] as ShowHTMLMessage); break;
+			case 'SetHighlightLine': this.setHighlightLine(rideMessage[1] as SetHighlightLineMessage); break;
+			case 'SetPromptType': this.setPromptType(rideMessage[1] as SetPromptTypeMessage); break;
+			case 'StatusOutput': this.statusOutput(rideMessage[1] as StatusOutputMessage); break;
+			case 'StringDialog': this.stringDialog(rideMessage[1] as StringDialogMessage); break;
+			case 'SysError': this.sysError(rideMessage[1] as SysErrorMessage); break;
+			case 'TaskDialog': this.taskDialog(rideMessage[1] as TaskDialogMessage); break;
+			case 'UnknownCommand': this.unknownCommand(rideMessage[1] as UnknownCommandMessage); break;
+			case 'UpdateDisplayName': this.updateDisplayName(rideMessage[1] as UpdateDisplayNameMessage); break;
+			case 'UpdateWindow': this.updateWindow(rideMessage[1] as OpenWindowMessage); break;
+			case 'ValueTip': this.valueTip(rideMessage[1] as ValueTipMessage); break;
+			case 'WindowTypeChanged': this.windowTypeChanged(rideMessage[1] as WindowTypeChangedMessage); break;
+			default: this.send('UnknownCommand', { name: rideMessage[0] });
+		}
 	}
 
 	private _linkInfo: string[][] = [];
@@ -337,33 +582,16 @@ export class AplRuntime extends EventEmitter {
 	private isClassic?: boolean;
 
 	// RIDE protocol message handlers
-	private Identify(x) {
+	private identify(x: IdentifyMessage) {
 		this.remoteIdentification = x;
 		this.isClassic = x.arch[0] === 'C';
-		// if (this.isClassic) {
-		// Object.keys(this.bq).forEach((k) => {
-		// 	const sysfn = `u${this.bq[k].codePointAt(0).toString(16)}`;
-		// 	if (this.syntax.sysfns_classic.includes(sysfn)) this.bq[k] = `⎕${sysfn}`;
-		// });
-		// this.bqbqc.forEach((p) => {
-		// 	const sysfn = `u${p.text.codePointAt(0).toString(16)}`;
-		// 	if (this.syntax.sysfns_classic.includes(sysfn)) p.text = `⎕${sysfn}`;
-		// });
-		// }
-
-		// this.InitHelp(x.version);
-		// ide.updTitle();
-		// ide.connected = 1;
-		// ide.updPW(-1);
-		// clearTimeout(this.tmr);
-		// delete this.tmr;
 	}
 
-	private InvalidSyntax() {
+	private invalidSyntax() {
 		this.err('Invalid syntax.');
 	}
 
-	private Disconnect(x) {
+	private disconnect(x: DisconnectMessage) {
 		if (this._terminate) {
 			this._terminate.resolve(x.message);
 		}
@@ -371,31 +599,31 @@ export class AplRuntime extends EventEmitter {
 		this.sendEvent('end');
 	}
 
-	private SysError(x) {
+	private sysError(x: SysErrorMessage) {
 		this.err('SysError: ' + x.text);
 		this.sendEvent('end');
 	}
 
-	private InternalError(x) {
+	private internalError(x: InternalErrorMessage) {
 		this.err(`An error (${x.error}) occurred processing ${x.message}`);
 	}
-	private NotificationMessage(x) {
+	private notificationMessage(x: NotificationMessage) {
 		// this.alert(x.message, 'Notification'); 
 	}
 
-	private UpdateDisplayName(x) {
+	private updateDisplayName(x: UpdateDisplayNameMessage) {
 		// this.wsid = x.displayName;
 		// this.updTitle();
 		// this.wse && this.wse.refresh();
 	}
 
-	private EchoInput(x: EchoInputMessage) {
+	private echoInput(x: EchoInputMessage) {
 		this.add(x.input);
 	}
 
 	private bannerDone = 0;
 
-	private SetPromptType(x) {
+	private setPromptType(x: SetPromptTypeMessage) {
 		const t = x.type;
 		this.promptType = t;
 		// if (t && ide.pending.length) D.send('Execute', { trace: 0, text: `${ide.pending.shift()}\n` });
@@ -414,28 +642,28 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private _hadError = 0;
-	private HadError(x) {
+	private hadError(x: HadErrorMessage) {
 		this._hadError = x.error;
 	}
 
-	private GotoWindow(x) {
+	private gotoWindow(x: GotoWindowMessage) {
 		// const w = ide.wins[x.win]; 
 		// w && w.focus();
 	}
 
-	private WindowTypeChanged(x) {
+	private windowTypeChanged(x: WindowTypeChangedMessage) {
 		// return ide.wins[x.win].setTC(x.tracer); 
 	}
-	private ReplyGetAutocomplete(x) {
+	private replyGetAutocomplete(x: ReplyGetAutocompleteMessage) {
 		if (this._autocompletion) {
 			this._autocompletion.resolve(x.options);
 		}
 	}
-	private ReplyGetHelpInformation(x) {
+	private replyGetHelpInformation(x: ReplyGetHelpInformationMessage) {
 		// if (x.url.length === 0) ide.getHelpExecutor.reject('No help found');
 		// else ide.getHelpExecutor.resolve(x.url);
 	}
-	private ReplyGetLanguageBar(x) {
+	private replyGetLanguageBar(x: ReplyGetLanguageBarMessage) {
 		// const { entries } = x;
 		// D.lb.order = entries.map((k) => k.avchar || ' ').join('');
 		// entries.forEach((k) => {
@@ -449,14 +677,14 @@ export class AplRuntime extends EventEmitter {
 		// });
 		// ide.lbarRecreate();
 	}
-	private ReplyGetSyntaxInformation(x) {
+	private replyGetSyntaxInformation(x: ReplyGetSyntaxInformationMessage) {
 		// D.ParseSyntaxInformation(x);
 		// D.ipc && D.ipc.server.broadcast('syntax', D.syntax);
 	}
-	private ValueTip(x) {
+	private valueTip(x: ValueTipMessage) {
 		// ide.wins[x.token].ValueTip(x); 
 	}
-	private SetHighlightLine(x) {
+	private setHighlightLine(x: SetHighlightLineMessage) {
 		this._currentLine = x.line;
 		this._currentColumn = undefined;
 		this.sendEvent(x.line === 0 ? 'stopOnEntry' : 'stopOnStep');
@@ -465,14 +693,14 @@ export class AplRuntime extends EventEmitter {
 		// ide.hadErr > 0 && (ide.hadErr -= 1);
 		// ide.focusWin(w);
 	}
-	private UpdateWindow(x) {
+	private updateWindow(x: OpenWindowMessage) {
 		// const w = ide.wins[x.token];
 		// w && w.update(x);
 	}
-	private ReplySaveChanges(x) {
+	private replySaveChanges(x: ReplySaveChangesMessage) {
 		// const w = ide.wins[x.win]; w && w.saved(x.err); 
 	}
-	private CloseWindow(x) {
+	private closeWindow(x: CloseWindowMessage) {
 		// const w = ide.wins[x.win];
 		// if (!w) return;
 		// if (w.bwId) {
@@ -487,7 +715,7 @@ export class AplRuntime extends EventEmitter {
 		// ide.WSEwidth = ide.wsew; ide.DBGwidth = ide.dbgw;
 		// w.tc && ide.getStats();
 	}
-	private OpenWindow(x) {
+	private openWindow(x: OpenWindowMessage) {
 		this._winId = x.token;
 		this.sendEvent('openWindow', { filename: x.filename });
 		if (this._hadError === 1001) {
@@ -567,7 +795,7 @@ export class AplRuntime extends EventEmitter {
 		// ide.wins[0].scrollCursorIntoView();
 		// }
 	}
-	private ShowHTML(x) {
+	private showHTML(x: ShowHTMLMessage) {
 		// if (D.el) {
 		// let w = ide.w3500;
 		// if (!w || w.isDestroyed()) {
@@ -597,26 +825,26 @@ export class AplRuntime extends EventEmitter {
 		// }
 		// }
 	}
-	private OptionsDialog(x) {
+	private optionsDialog(x: OptionsDialogMessage) {
 		// D.util.optionsDialog(x, (r) => {
 		// D.send('ReplyOptionsDialog', { index: r, token: x.token });
 		// });
 	}
-	private StringDialog(x) {
+	private stringDialog(x: StringDialogMessage) {
 		// D.util.stringDialog(x, (r) => {
 		// D.send('ReplyStringDialog', { value: r, token: x.token });
 		// });
 	}
-	private TaskDialog(x) {
+	private taskDialog(x: TaskDialogMessage) {
 		this.sendEvent('taskDialog', x);
 	}
-	private ReplyClearTraceStopMonitor(x) {
+	private replyClearTraceStopMonitor(x: ReplyClearTraceStopMonitorMessage) {
 		// $.alert(`The following items were cleared:
 		// ${x.traces} traces
 		// ${x.stops} stops
 		// ${x.monitors} monitors`, 'Clear all trace/stop/monitor');
 	}
-	private ReplyGetSIStack(x) {
+	private replyGetSIStack(x: ReplyGetSIStackMessage) {
 		this.log('getSIStack');
 		if (this._siStack) {
 			const frames: IStackFrame[] = x.stack.map((s, i) => {
@@ -640,13 +868,13 @@ export class AplRuntime extends EventEmitter {
 		// I.sb_sis.classList.toggle('active', l > 0);
 		// ide.dbg && ide.dbg.sistack.render(x.stack);
 	}
-	private ReplyGetThreads(x) {
+	private replyGetThreads(x: ReplyGetThreadsMessage) {
 		// const l = x.threads.length;
 		// I.sb_threads.innerText = `&: ${l}`;
 		// I.sb_threads.classList.toggle('active', l > 1);
 		// ide.dbg && ide.dbg.threads.render(x.threads);
 	}
-	private InterpreterStatus(x) {
+	private interpreterStatus(x: InterpreterStatusMessage) {
 		// // update status bar fields here
 		// I.sb_ml.innerText = `⎕ML: ${x.ML}`;
 		// I.sb_io.innerText = `⎕IO: ${x.IO}`;
@@ -664,21 +892,21 @@ export class AplRuntime extends EventEmitter {
 		// I.sb_dq.classList.toggle('active', x.DQ !== 0);
 		// I.sb_threads.classList.toggle('active', x.NumThreads > 1);
 	}
-	private ReplyFormatCode(x) {
+	private replyFormatCode(x: ReplyFormatCodeMessage) {
 		// const w = D.wins[x.win];
 		// w.ReplyFormatCode(x.text);
 		// ide.hadErr > 0 && (ide.hadErr -= 1);
 		// ide.focusWin(w);
 	}
-	private ReplyGetConfiguration(x) {
+	private replyGetConfiguration(x: ReplyGetConfigurationMessage) {
 		// x.configurations.forEach((c) => {
 		// 	if (c.name === 'AUTO_PAUSE_THREADS') D.prf.pauseOnError(c.value === '1');
 		// });
 	}
-	private ReplyTreeList(x) {
+	private replyTreeList(x: ReplyTreeListMessage) {
 		// ide.wse.replyTreeList(x); 
 	}
-	private StatusOutput(x) {
+	private statusOutput(x: StatusOutputMessage) {
 		// let w = ide.wStatus;
 		// if (!D.el) return;
 		// if (!w) {
@@ -697,10 +925,10 @@ export class AplRuntime extends EventEmitter {
 		// }
 		// w.webContents.executeJavaScript(`add(${JSON.stringify(x)})`);
 	}
-	private ReplyGetLog(x) {
+	private replyGetLog(x: ReplyGetLogMessage) {
 		this.add(x.result.join('\n'));
 	}
-	private UnknownCommand(x) {
+	private unknownCommand(x: UnknownCommandMessage) {
 		// if (x.name === 'ClearTraceStopMonitor') {
 		// toastr.warning('Clear all trace/stop/monitor not supported by the interpreter');
 		// } else if (x.name === 'GetHelpInformation') {
@@ -794,29 +1022,7 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	public getStepInTargets(frameId: number): IStepInTargets[] {
-
-		const line = this._sourceLines[this._currentLine].trim();
-
-		// every word of the current line becomes a stack frame.
-		const words = line.split(/\s+/);
-
-		// return nothing if frameId is out of range
-		if (frameId < 0 || frameId >= words.length) {
-			return [];
-		}
-
-		// pick the frame for the given frameId
-		const frame = words[frameId];
-
-		const pos = line.indexOf(frame);
-
-		// make every character of the frame a potential "step in" target
-		return frame.split('').map((c, ix) => {
-			return {
-				id: pos + ix,
-				label: `target: ${c}`
-			};
-		});
+		return [];
 	}
 
 	public getBreakpoints(path: string, line: number): number[] {
