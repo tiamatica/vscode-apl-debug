@@ -82,7 +82,7 @@ export class AplDebugSession extends LoggingDebugSession {
 			);
 		});
 		this._runtime.on('openWindow', (opt) => {
-			// vscode.window.showTextDocument(vscode.Uri.file(opt.filename));
+			vscode.window.showTextDocument(vscode.Uri.file(opt.filename));
 		});
 		
 		this._runtime.on('stopOnEntry', () => {
@@ -157,26 +157,6 @@ export class AplDebugSession extends LoggingDebugSession {
 
 		// make VS Code provide "Step in Target" functionality
 		response.body.supportsStepInTargetsRequest = true;
-
-		// the adapter defines two exceptions filters, one with support for conditions.
-		response.body.supportsExceptionFilterOptions = true;
-		response.body.exceptionBreakpointFilters = [
-			{
-				filter: 'namedException',
-				label: "Named Exception",
-				description: `Break on named exceptions. Enter the exception's name as the Condition.`,
-				default: false,
-				supportsCondition: true,
-				conditionDescription: `Enter the exception's name`
-			},
-			{
-				filter: 'otherExceptions',
-				label: "Other Exceptions",
-				description: 'This is a other exception',
-				default: true,
-				supportsCondition: false
-			}
-		];
 
 		// make VS Code send exceptionInfoRequests
 		response.body.supportsExceptionInfoRequest = true;
@@ -267,35 +247,6 @@ export class AplDebugSession extends LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
-	protected async setExceptionBreakPointsRequest(response: DebugProtocol.SetExceptionBreakpointsResponse, args: DebugProtocol.SetExceptionBreakpointsArguments): Promise<void> {
-
-		let namedException: string | undefined = undefined;
-		let otherExceptions = false;
-
-		if (args.filterOptions) {
-			for (const filterOption of args.filterOptions) {
-				switch (filterOption.filterId) {
-					case 'namedException':
-						namedException = args.filterOptions[0].condition;
-						break;
-					case 'otherExceptions':
-						otherExceptions = true;
-						break;
-				}
-			}
-		}
-
-		if (args.filters) {
-			if (args.filters.indexOf('otherExceptions') >= 0) {
-				otherExceptions = true;
-			}
-		}
-
-		this._runtime.setExceptionsFilters(namedException, otherExceptions);
-
-		this.sendResponse(response);
-	}
-
 	protected exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse, args: DebugProtocol.ExceptionInfoArguments) {
 		response.body = {
 			exceptionId: 'Exception ID',
@@ -322,11 +273,6 @@ export class AplDebugSession extends LoggingDebugSession {
 	}
 
 	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
-
-		// const startFrame = typeof args.startFrame === 'number' ? args.startFrame : 0;
-		// const maxLevels = typeof args.levels === 'number' ? args.levels : 1000;
-		// const endFrame = startFrame + maxLevels;
-	
 		this._runtime.getSIStack()
 		.then((stk) => {
 			response.body = {
@@ -416,54 +362,6 @@ export class AplDebugSession extends LoggingDebugSession {
 			result: '',
 			variablesReference: 0
 		};
-		this.sendResponse(response);
-	}
-
-	protected dataBreakpointInfoRequest(response: DebugProtocol.DataBreakpointInfoResponse, args: DebugProtocol.DataBreakpointInfoArguments): void {
-
-		response.body = {
-            dataId: null,
-            description: "cannot break on data access",
-            accessTypes: undefined,
-            canPersist: false
-        };
-
-		if (args.variablesReference && args.name) {
-			const id = this._variableHandles.get(args.variablesReference);
-			if (id === "global") {
-				response.body.dataId = args.name;
-				response.body.description = args.name;
-				response.body.accessTypes = [ "write" ];
-				response.body.canPersist = true;
-			} else {
-				response.body.dataId = args.name;
-				response.body.description = args.name;
-				response.body.accessTypes = ["read", "write", "readWrite"];
-				response.body.canPersist = true;
-			}
-		}
-
-		this.sendResponse(response);
-	}
-
-	protected setDataBreakpointsRequest(response: DebugProtocol.SetDataBreakpointsResponse, args: DebugProtocol.SetDataBreakpointsArguments): void {
-
-		// clear all data breakpoints
-		this._runtime.clearAllDataBreakpoints();
-
-		response.body = {
-			breakpoints: []
-		};
-
-		for (const dbp of args.breakpoints) {
-			// assume that id is the "address" to break on
-			const dataId = dbp.dataId + `_${dbp.accessType ? dbp.accessType : 'write'}`;
-			const ok = this._runtime.setDataBreakpoint(dataId);
-			response.body.breakpoints.push({
-				verified: ok
-			});
-		}
-
 		this.sendResponse(response);
 	}
 
