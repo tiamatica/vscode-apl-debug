@@ -141,12 +141,17 @@
         "runtime": "node",
         "configurationAttributes": {
           "launch": {
-            "required": ["program"],
+            "required": ["program", "exe"],
             "properties": {
               "program": {
                 "type": "string",
                 "description": "Absolute path to an APL file.",
                 "default": "${workspaceFolder}/${command:AskForProgramName}"
+              },
+              "exe": {
+                "type": "string",
+                "description": "Path to dyalog executable",
+                "default": "dyalog.exe"
               },
               "cwd": {
                 "type": "string",
@@ -171,6 +176,7 @@
             "type": "apl",
             "request": "launch",
             "name": "Ask for file name",
+            "exe": "dyalog.exe",
             "program": "${workspaceFolder}/${command:AskForProgramName}",
             "cwd": "${workspaceFolder}",
             "stopOnEntry": true
@@ -184,6 +190,7 @@
               "type": "apl",
               "request": "launch",
               "name": "Ask for file name",
+              "exe": "dyalog.exe",
               "program": "^\"\\${workspaceFolder}/\\${command:AskForProgramName}\"",
               "cwd": "^\"\\${workspaceFolder}\"",
               "stopOnEntry": true

@@ -45,6 +45,12 @@ export class AplRuntime extends EventEmitter {
 	public get sourceFile() {
 		return this._sourceFile;
 	}
+	
+	// the current interpreterStatus
+	private _status?: InterpreterStatusMessage;
+	public get status(): InterpreterStatusMessage | undefined {
+		return this._status;
+	}
 
 	// maps from sourceFile to array of APL breakpoints
 	private _breakPoints = new Map<string, IAplBreakpoint[]>();
@@ -86,8 +92,11 @@ export class AplRuntime extends EventEmitter {
 	/**
 	 * Start executing the given program.
 	 */
-	public async start(program: string, folder: string, stopOnEntry: boolean, noDebug: boolean): Promise<void> {
+	public async start(exe: string, program: string, folder: string, stopOnEntry: boolean, noDebug: boolean): Promise<void> {
 
+		if (exe) {
+			this._exe = exe;
+		}
 		this._noDebug = noDebug;
 		this._sourceFile = program;
 		this._folder = folder;
@@ -465,33 +474,15 @@ export class AplRuntime extends EventEmitter {
 	}
 	private setHighlightLine(x: SetHighlightLineMessage) {
 		this.sendEvent(x.line === 0 ? 'stopOnEntry' : 'stopOnStep');
-		// const w = D.wins[x.win];
-		// w.SetHighlightLine(x.line, ide.hadErr);
-		// ide.hadErr > 0 && (ide.hadErr -= 1);
-		// ide.focusWin(w);
 	}
 	private updateWindow(x: OpenWindowMessage) {
 		this._windows[x.token] = x;
-		// const w = ide.wins[x.token];
-		// w && w.update(x);
 	}
 	private replySaveChanges(x: ReplySaveChangesMessage) {
 		// const w = ide.wins[x.win]; w && w.saved(x.err); 
 	}
 	private closeWindow(x: CloseWindowMessage) {
-		// const w = ide.wins[x.win];
-		// if (!w) return;
-		// if (w.bwId) {
-		// ide.block();
-		// w.close();
-		// w.id = -1;
-		// } else if (w) {
-		// w.me.getModel().dispose();
-		// w.container && w.container.close();
-		// }
-		// delete ide.wins[x.win]; ide.focusMRUWin();
-		// ide.WSEwidth = ide.wsew; ide.DBGwidth = ide.dbgw;
-		// w.tc && ide.getStats();
+		delete this._windows[x.win];
 	}
 	private openWindow(x: OpenWindowMessage) {
 		this._windows[x.token] = x;
@@ -501,78 +492,6 @@ export class AplRuntime extends EventEmitter {
 			this.sendEvent('stopOnBreakpoint');
 			this._hadError = 0;
 		}
-		// if (!ee.debugger && D.el && process.env.RIDE_EDITOR) {
-		// const fs = nodeRequire('fs');
-		// const os = nodeRequire('os');
-		// const cp = nodeRequire('child_process');
-		// const d = `${os.tmpdir()}/dyalog`;
-		// fs.existsSync(d) || fs.mkdirSync(d, 7 * 8 * 8); // rwx------
-		// const f = `${d}/${ee.name}.dyalog`;
-		// fs.writeFileSync(f, ee.text.join('\n'), { encoding: 'utf8', mode: 6 * 8 * 8 }); // rw-------
-		// const p = cp.spawn(
-		// 	process.env.RIDE_EDITOR,
-		// 	[f],
-		// 	{ env: $.extend({}, process.env, { LINE: `${1 + (ee.currentRow || 0)}` }) },
-		// );
-		// p.on('error', (x) => { $.err(x); });
-		// p.on('exit', () => {
-		// 	const s = fs.readFileSync(f, 'utf8'); fs.unlinkSync(f);
-		// 	D.send('SaveChanges', {
-		// 	win: ee.token,
-		// 	text: s.split('\n'),
-		// 	stop: ee.stop,
-		// 	trace: ee.trace,
-		// 	monitor: ee.monitor,
-		// 	});
-		// 	D.send('CloseWindow', { win: ee.token });
-		// });
-		// return;
-		// }
-		// ide.wins[0].hadErrTmr && clearTimeout(ide.wins[0].hadErrTmr);
-		// const w = ee.token;
-		// let done;
-		// const editorOpts = { id: w, name: ee.name, tc: ee.debugger };
-		// !editorOpts.tc && (ide.hadErr = -1);
-		// ide.block(); // unblock the message queue once monaco ready
-		// if (D.el && D.prf.floating() && !ide.dead) {
-		// D.IPC_LinkEditor({ editorOpts, ee });
-		// done = 1;
-		// } else if (D.elw && !D.elw.isFocused()) D.elw.focus();
-		// if (done) return;
-		// const ed = new D.Ed(ide, editorOpts);
-		// ed.focusTS =  +new Date();
-		// ide.wins[w] = ed;
-		// ed.me_ready.then(() => {
-		// ed.open(ee);
-		// ide.unblock();
-		// });
-		// // add to golden layout:
-		// const tc = !!ee.debugger;
-		// const bro = gl.root.getComponentsByName('win').filter(x => x.id && tc === !!x.tc)[0]; // existing editor
-		// let p;
-		// if (bro) { // add next to existing editor
-		// p = bro.container.parent.parent;
-		// } else { // add to the right
-		// [p] = gl.root.contentItems;
-		// const t0 = tc ? 'column' : 'row';
-		// if (p.type !== t0) {
-		// 	const q = gl.createContentItem({ type: t0 }, p);
-		// 	p.parent.replaceChild(p, q);
-		// 	q.addChild(p); q.callDownwards('setSize'); p = q;
-		// }
-		// }
-		// const ind = p.contentItems.length - !(editorOpts.tc || !!bro || !D.prf.dbg());
-		// p.addChild({
-		// type: 'component',
-		// componentName: 'win',
-		// componentState: { id: w },
-		// title: ee.name,
-		// }, ind);
-		// ide.WSEwidth = ide.wsew; ide.DBGwidth = ide.dbgw;
-		// if (tc) {
-		// ide.getStats();
-		// ide.wins[0].scrollCursorIntoView();
-		// }
 	}
 	private showHTML(x: ShowHTMLMessage) {
 		// if (D.el) {
@@ -654,6 +573,7 @@ export class AplRuntime extends EventEmitter {
 		// ide.dbg && ide.dbg.threads.render(x.threads);
 	}
 	private interpreterStatus(x: InterpreterStatusMessage) {
+		this._status = x;
 		// // update status bar fields here
 		// I.sb_ml.innerText = `⎕ML: ${x.ML}`;
 		// I.sb_io.innerText = `⎕IO: ${x.IO}`;
@@ -683,7 +603,10 @@ export class AplRuntime extends EventEmitter {
 		// });
 	}
 	private replyTreeList(x: ReplyTreeListMessage) {
-		// ide.wse.replyTreeList(x); 
+		if (this._treelist[x.nodeId]) {
+			this._treelist[x.nodeId].resolve(x);
+			delete this._treelist[x.nodeId];
+		}
 	}
 	private statusOutput(x: StatusOutputMessage) {
 		// let w = ide.wStatus;
@@ -756,6 +679,18 @@ export class AplRuntime extends EventEmitter {
 			this.send('GetSIStack', {});
 		});
 	}
+
+	private _treelist = {};
+	/**
+	 * Get autocomplete
+	 */
+	public getTreeList(nodeId: number): PromiseLike<ReplyTreeListMessage> {
+		return new Promise((resolve, reject) => {
+			this._treelist[nodeId] = { resolve, reject };
+			this.send('TreeList', { nodeId });
+		});
+	}
+
 
 	/**
 	 * Reply to TaskDialog

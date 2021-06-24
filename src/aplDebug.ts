@@ -29,6 +29,8 @@ import { Subject } from 'await-notify';
 interface ILaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
 	/** An absolute path to the "program" to debug. */
 	program: string;
+	/** Path to the dyalog executable to use for the debug session. */
+	exe: string;
 	/** An absolute path to the folder to load into debugger. */
 	cwd: string;
 	/** Automatically stop target after launch. If not specified, target does not stop. */
@@ -189,7 +191,7 @@ export class AplDebugSession extends LoggingDebugSession {
 		await this._configurationDone.wait(1000);
 
 		// start the program in the runtime
-		await this._runtime.start(args.program, args.cwd, !!args.stopOnEntry, !!args.noDebug);
+		await this._runtime.start(args.exe, args.program, args.cwd, !!args.stopOnEntry, !!args.noDebug);
 
 		this.sendResponse(response);
 	}
@@ -294,16 +296,98 @@ export class AplDebugSession extends LoggingDebugSession {
 
 		response.body = {
 			scopes: [
-				new Scope("Local", this._variableHandles.create("local"), false),
-				new Scope("Global", this._variableHandles.create("global"), true)
+				new Scope("Global", this._variableHandles.create("global"), false),
+				new Scope("Status", this._variableHandles.create("status"), false)
 			]
 		};
 		this.sendResponse(response);
 	}
 
+	private classMap(nc: number): string {
+		switch(nc) {
+			case 2.1:
+			case 2.2:
+			case 2.6:
+			return 'data'; break;
+			
+			case 2.3:
+			return 'property'; break;
+
+			case 3.1:
+			case 3.2:
+			case 3.3:
+			case 3.6:
+			case 4.1:
+			case 4.2:
+			case 4.3:
+			return 'method'; break;
+
+			case -1: 
+			case 9.1:
+			case 9.2:
+			case 9.4:
+			case 9.6:
+			return 'class'; break;
+
+			case 9.5:
+			case 9.7:
+			return 'interface'; break;
+
+			default: return 'virtual';
+		}
+	}
+
+	private _varMap = {};
+
 	protected async variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request) {
 
-		const variables: DebugProtocol.Variable[] = [];
+		const a = args;
+		const parent = this._variableHandles.get(args.variablesReference);
+		let variables: DebugProtocol.Variable[];
+		if (parent === 'status') {
+			await new Promise(f => setTimeout(f, 10)); // give runtime a chance to process a fresh status update
+			const status = this._runtime.status;
+			if (!status) {
+				return response;
+			}
+			variables = Object.keys(status).map((name) =>{
+				const kind = 'data';
+				return { 
+					name, 
+					value: `${status[name]}`,
+					type: kind,
+					presentationHint: { kind },
+					variablesReference: 0
+				} as DebugProtocol.Variable;
+			});
+
+		} else {
+			const parentNodeId = this._varMap[args.variablesReference] || 0;
+			const treenode = await this._runtime.getTreeList(parentNodeId);
+			variables = treenode.names.map((name, index) => {
+				const kind = this.classMap(treenode.classes[index]);
+				const evaluateName = parentNodeId === 0 ? name : `${parent}.${name}`;
+				const debugVar = { 
+					name, 
+					value:'',
+					evaluateName,
+					type: kind,
+					presentationHint: { kind },
+					variablesReference: 0
+				} as DebugProtocol.Variable;
+				const nodeId = treenode.nodeIds[index];
+				if (nodeId !== 0) {
+					const varHandle = Object.keys(this._varMap).find((k) => this._varMap[k] === nodeId);
+					if (varHandle) {
+						debugVar.variablesReference = +varHandle;
+					} else {
+						debugVar.variablesReference = this._variableHandles.create(evaluateName);
+						this._varMap[debugVar.variablesReference] = nodeId;
+					}
+				}
+				return debugVar;
+			});
+		}	
 		response.body = {
 			variables: variables
 		};
