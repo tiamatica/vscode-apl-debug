@@ -369,7 +369,7 @@ export class AplDebugSession extends LoggingDebugSession {
 				const evaluateName = parentNodeId === 0 ? name : `${parent}.${name}`;
 				const debugVar = { 
 					name, 
-					value:'',
+					value: '',
 					evaluateName,
 					type: kind,
 					presentationHint: { kind },
@@ -434,18 +434,26 @@ export class AplDebugSession extends LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
-	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): Promise<void> {
-
-		// let reply: string | undefined = undefined;
-
-		if (args.context === 'repl') {
-			this._runtime.execute(args.expression);
-		}
+	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments, request?: DebugProtocol.Request): Promise<void> {
 
 		response.body = {
 			result: '',
 			variablesReference: 0
 		};
+		
+		if (args.context === 'repl') {
+			this._runtime.execute(args.expression);
+		} else if (args.context === 'hover') {
+			const win = args.frameId || 0;
+			const token = request?.seq || win;
+			const column = 0;
+			const valueTip: ValueTipMessage = await this._runtime.getValueTip(args.expression, column, token, win);
+			const kind = this.classMap(valueTip.class);
+			response.body.result = valueTip.tip.join('\n');
+			response.body.type = kind;
+			response.body.presentationHint = { kind };
+		}
+
 		this.sendResponse(response);
 	}
 

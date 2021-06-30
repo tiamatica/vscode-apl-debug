@@ -412,7 +412,7 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private echoInput(x: EchoInputMessage) {
-		this.add(x.input);
+		// this.add(x.input);
 	}
 
 	private bannerDone = 0;
@@ -470,10 +470,21 @@ export class AplRuntime extends EventEmitter {
 		// D.ipc && D.ipc.server.broadcast('syntax', D.syntax);
 	}
 	private valueTip(x: ValueTipMessage) {
-		// ide.wins[x.token].ValueTip(x); 
+		this.log('getValueTip');
+		if (this._valueTip[x.token]) {
+			this._valueTip[x.token].resolve(x);
+			delete this._valueTip[x.token];
+		}
 	}
 	private setHighlightLine(x: SetHighlightLineMessage) {
-		this.sendEvent(x.line === 0 ? 'stopOnEntry' : 'stopOnStep');
+		if (this._hadError === 1001) {
+			this.sendEvent('stopOnBreakpoint');
+			this._hadError = 0;
+		// } else if (x.line === 0) {
+		// 	this.sendEvent('stopOnEntry');
+		} else {
+			this.sendEvent('stopOnStep');
+		}
 	}
 	private updateWindow(x: OpenWindowMessage) {
 		this._windows[x.token] = x;
@@ -488,10 +499,6 @@ export class AplRuntime extends EventEmitter {
 		this._windows[x.token] = x;
 		this._winId = x.token;
 		this.sendEvent('openWindow', { filename: x.filename });
-		if (this._hadError === 1001) {
-			this.sendEvent('stopOnBreakpoint');
-			this._hadError = 0;
-		}
 	}
 	private showHTML(x: ShowHTMLMessage) {
 		// if (D.el) {
@@ -561,10 +568,6 @@ export class AplRuntime extends EventEmitter {
 				count: x.stack.length
 			});
 		}
-		// const l = x.stack.length;
-		// I.sb_sis.innerText = `⎕SI: ${l}`;
-		// I.sb_sis.classList.toggle('active', l > 0);
-		// ide.dbg && ide.dbg.sistack.render(x.stack);
 	}
 	private replyGetThreads(x: ReplyGetThreadsMessage) {
 		// const l = x.threads.length;
@@ -677,6 +680,24 @@ export class AplRuntime extends EventEmitter {
 		return new Promise((resolve, reject) => {
 			this._siStack = { resolve, reject };
 			this.send('GetSIStack', {});
+		});
+	}
+
+	private _valueTip = {};
+	/**
+	 * Get Value Tip
+	 */
+	public getValueTip(line: string, pos: number, token: number, win: number = 0): PromiseLike<ValueTipMessage> {
+		return new Promise((resolve, reject) => {
+			this._valueTip[token] = { resolve, reject };
+			this.send('GetValueTip', { // ask interpreter
+				win,
+				token,
+				line,
+				pos,
+				maxWidth: 200,
+				maxHeight: 100,
+			  });
 		});
 	}
 
