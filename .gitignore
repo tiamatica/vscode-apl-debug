@@ -6,3 +6,4 @@ npm-debug.log
 apl-debug.txt
 *.vsix
 .DS_Store
+link.json

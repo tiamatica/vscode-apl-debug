@@ -5,9 +5,12 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
 import { AplDebugSession } from './aplDebug';
 import { FileAccessor } from './aplRuntime';
+import { callbackify, promisify } from 'util';
 
 export function activateAplDebug(context: vscode.ExtensionContext, factory?: vscode.DebugAdapterDescriptorFactory) {
 
@@ -169,6 +172,43 @@ class AplConfigurationProvider implements vscode.DebugConfigurationProvider {
 }
 
 export const workspaceFileAccessor: FileAccessor = {
+	async checkExists(filePath: string, timeout: number) {
+		return new Promise(function (resolve, reject) {
+	
+			var timer = setTimeout(function () {
+				watcher.close();
+				reject(new Error('File did not exists and was not created during the timeout.'));
+			}, timeout);
+	
+			fs.access(filePath, fs.constants.R_OK, function (err) {
+				if (!err) {
+					clearTimeout(timer);
+					watcher.close();
+					resolve(true);
+				}
+			});
+	
+			var dir = path.dirname(filePath);
+			var basename = path.basename(filePath);
+			var watcher = fs.watch(dir, function (eventType, filename) {
+				if (eventType === 'rename' && filename === basename) {
+					clearTimeout(timer);
+					watcher.close();
+					resolve(true);
+				}
+			});
+		});
+	},
+	async deleteFile(filePath: string) {
+		return new Promise((resolve, reject) => {
+			fs.rm(filePath, {force: true }, (err) => {
+				if (err) {
+					reject(err);
+				}
+				resolve(true);
+			});
+		});
+	},
 	async readFile(path: string) {
 		try {
 			const uri = vscode.Uri.file(path);
@@ -185,7 +225,7 @@ export const workspaceFileAccessor: FileAccessor = {
 				return `cannot read '${path}'`;
 			}
 		}
-	}
+	},
 };
 
 class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {

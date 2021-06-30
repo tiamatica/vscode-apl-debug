@@ -4,7 +4,8 @@
 
 import { AplDebugSession } from './aplDebug';
 
-import { readFile } from 'fs';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as Net from 'net';
 import { FileAccessor } from './aplRuntime';
 
@@ -17,9 +18,46 @@ import { FileAccessor } from './aplRuntime';
  * So we can only use node.js API for accessing files.
  */
 const fsAccessor:  FileAccessor = {
+	async checkExists(filePath: string, timeout: number) {
+		return new Promise(function (resolve, reject) {
+	
+			var timer = setTimeout(function () {
+				watcher.close();
+				reject(new Error('File did not exists and was not created during the timeout.'));
+			}, timeout);
+	
+			fs.access(filePath, fs.constants.R_OK, function (err) {
+				if (!err) {
+					clearTimeout(timer);
+					watcher.close();
+					resolve(true);
+				}
+			});
+	
+			var dir = path.dirname(filePath);
+			var basename = path.basename(filePath);
+			var watcher = fs.watch(dir, function (eventType, filename) {
+				if (eventType === 'rename' && filename === basename) {
+					clearTimeout(timer);
+					watcher.close();
+					resolve(true);
+				}
+			});
+		});
+	},
+	async deleteFile(filePath: string) {
+		return new Promise((resolve, reject) => {
+			fs.rm(filePath, {force: true }, (err) => {
+				if (err) {
+					reject(err);
+				}
+				resolve(true);
+			});
+		});
+	},
 	async readFile(path: string): Promise<string> {
 		return new Promise((resolve, reject) => {
-			readFile(path, (err, data) => {
+			fs.readFile(path, (err, data) => {
 				if (err) {
 					reject(err);
 				} else {
@@ -27,7 +65,7 @@ const fsAccessor:  FileAccessor = {
 				}
 			});
 		});
-	}
+	},
 };
 
 /*

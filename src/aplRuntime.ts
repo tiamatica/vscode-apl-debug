@@ -8,6 +8,8 @@ import * as Net from 'net';
 import { Subject } from 'await-notify';
 
 export interface FileAccessor {
+	checkExists(filePath: string, timeout: number): Promise<boolean>;
+	deleteFile(path: string): Promise<boolean>;
 	readFile(path: string): Promise<string>;
 }
 
@@ -63,7 +65,8 @@ export class AplRuntime extends EventEmitter {
 
 	private _noDebug = false;
 	private _trace = false;
-	private _folder = '';
+	private _folder = '.';
+	private _link = '';
 
 	private _client?: Net.Socket;
 
@@ -77,7 +80,6 @@ export class AplRuntime extends EventEmitter {
 	private tid = 0; // tid:timeout id
 	private _winId = 0; // current window id
 	private _startTime = 0; // start time of debug session
-	private _linkRE: RegExp; // start time of debug session
 	private _sessionReady = new Subject();
 	private _windows: OpenWindowMessage[] = [];
 
@@ -86,7 +88,6 @@ export class AplRuntime extends EventEmitter {
 	constructor(private _fileAccessor: FileAccessor) {
 		super();
 		this._startTime = Date.now();
-		this._linkRE = new RegExp(`link${this._startTime}(\\[.*?\\])link${this._startTime}`, 'gs');
 	}
 
 	/**
@@ -100,6 +101,7 @@ export class AplRuntime extends EventEmitter {
 		this._noDebug = noDebug;
 		this._sourceFile = program;
 		this._folder = folder;
+		this._link = `${this._folder}/.vscode/link.json`;
 		this._trace = stopOnEntry;
 
 		this.launchDyalog();
@@ -111,7 +113,13 @@ export class AplRuntime extends EventEmitter {
 		if (this._sourceFile) {
 			this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`);
 		}
-		this.exec(0, `'link${this._startTime}'∘{⎕←⍺,⍺,⍨⎕JSON⍕¨⍵}¨5177⌶⍬`);
+		await this._fileAccessor.deleteFile(this._link);
+		this.exec(0, `(⊂⎕JSON{(⍕2⊃⍵)@2⊢⍵}¨5177⌶⍬)⎕NPUT '${this._link}' 1`);
+		this._fileAccessor.checkExists(this._link, 5000)
+		.then(() => this._fileAccessor.readFile(this._link))
+		.then((data) => {
+			this._linkInfo = JSON.parse(data);
+		}).catch(this.err);
 		if (this._sourceFile) {
 			this.exec(this._trace ? 1 : 0, '⍎name');
 		}
@@ -308,16 +316,7 @@ export class AplRuntime extends EventEmitter {
 
 	private _linkInfo: string[][] = [];
 	private add(text: string) {
-		let m;
-		let output = true;
-		while (m = this._linkRE.exec(text)) {
-			output = false;
-			const json = m[1].replace(/\n\s+/, '');
-			this._linkInfo.push(JSON.parse(json));
-		}
-		if (output) {
-			this.sendEvent('output', text, this._sourceFile, 'stdout');
-		}
+		this.sendEvent('output', text, this._sourceFile, 'stdout');
 	}
 
 	private rrd() { // request rundown
