@@ -256,17 +256,7 @@ export class AplRuntime extends EventEmitter {
 	private rd() { // run down the queue
 		while (this.mq.length && !this.blk) {
 			const a = this.mq.shift(); // a[0]:command name, a[1]:command args
-			if (a && a[0] === 'AppendSessionOutput') { // special case: batch sequences of AppendSessionOutput together
-				let s = (a[1] as AppendSessionOutputMessage).result;
-				const nq = Math.min(this.mq.length, 256);
-				let i: number;
-				for (i = 0; i < nq && this.mq[i][0] === 'AppendSessionOutput'; i++) {
-					const r = (this.mq[i][1] as AppendSessionOutputMessage).result;
-					s += r;
-				}
-				i && this.mq.splice(0, i);
-				this.add(s);
-			} else if (a) {
+			if (a) {
 				this.handleMessage(a);
 			}
 		}
@@ -276,6 +266,7 @@ export class AplRuntime extends EventEmitter {
 
 	private handleMessage(rideMessage: RideMessage) {
 		switch (rideMessage[0]) {
+			case 'AppendSessionOutput': this.appendSessionOutput(rideMessage[1] as AppendSessionOutputMessage); break;
 			case 'CloseWindow': this.closeWindow(rideMessage[1] as CloseWindowMessage); break;
 			case 'Disconnect': this.disconnect(rideMessage[1] as DisconnectMessage); break;
 			case 'EchoInput': this.echoInput(rideMessage[1] as EchoInputMessage); break;
@@ -376,6 +367,18 @@ export class AplRuntime extends EventEmitter {
 	private isClassic?: boolean;
 
 	// RIDE protocol message handlers
+	private appendSessionOutput(x: AppendSessionOutputMessage) {
+		let s = x.result;
+		const nq = Math.min(this.mq.length, 256);
+		let i: number;
+		for (i = 0; i < nq && this.mq[i][0] === 'AppendSessionOutput'; i++) {
+			const r = (this.mq[i][1] as AppendSessionOutputMessage).result;
+			s += r;
+		}
+		i && this.mq.splice(0, i);
+		this.add(s);
+	}
+
 	private identify(x: IdentifyMessage) {
 		this.remoteIdentification = x;
 		this.isClassic = x.arch[0] === 'C';
@@ -612,46 +615,20 @@ export class AplRuntime extends EventEmitter {
 		}
 	}
 	private statusOutput(x: StatusOutputMessage) {
-		// let w = ide.wStatus;
-		// if (!D.el) return;
-		// if (!w) {
-		// ide.wStatus = new D.el.BrowserWindow({
-		// 	width: 600,
-		// 	height: 400,
-		// 	webPreferences: {
-		// 	contextIsolation: true,
-		// 	nodeIntegration: false,
-		// 	},
-		// });
-		// w = ide.wStatus;
-		// w.setTitle(`Status Output - ${document.title}`);
-		// w.loadURL(`file://${__dirname}/status.html`);
-		// w.on('closed', () => { delete ide.wStatus; });
-		// }
-		// w.webContents.executeJavaScript(`add(${JSON.stringify(x)})`);
+		let s = x.text;
+		const nq = Math.min(this.mq.length, 256);
+		let i: number;
+		for (i = 0; i < nq && this.mq[i][0] === 'StatusOutput'; i++) {
+			const r = (this.mq[i][1] as StatusOutputMessage).text;
+			s += r;
+		}
+		i && this.mq.splice(0, i);
+		this.sendEvent('output', s, undefined, 'stderr');
 	}
 	private replyGetLog(x: ReplyGetLogMessage) {
 		this.add(x.result.join('\n'));
 	}
 	private unknownCommand(x: UnknownCommandMessage) {
-		// if (x.name === 'ClearTraceStopMonitor') {
-		// toastr.warning('Clear all trace/stop/monitor not supported by the interpreter');
-		// } else if (x.name === 'GetHelpInformation') {
-		// ide.getHelpExecutor.reject('GetHelpInformation not implemented on remote interpreter');
-		// } else if (x.name === 'Subscribe') {
-		// // flag to fallback for status updates.
-		// ide.hasSubscribe = false;
-		// I.sb_ml.hidden = true;
-		// I.sb_io.hidden = true;
-		// I.sb_trap.hidden = true;
-		// I.sb_dq.hidden = true;
-		// I.sb_cc.hidden = true;
-		// I.sb_gc.hidden = true;
-		// toggleStats();
-		// } else if (x.name === 'GetConfiguration') {
-		// D.get_configuration_na = 1;
-		// updMenu();
-		// }
 	}
 
 	/**

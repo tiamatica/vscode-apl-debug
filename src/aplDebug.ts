@@ -111,7 +111,9 @@ export class AplDebugSession extends LoggingDebugSession {
 		});
 		this._runtime.on('output', (text, filePath, category) => {
 			const e: DebugProtocol.OutputEvent = new OutputEvent(text, category);
-			e.body.source = this.createSource(filePath);
+			if (filePath) {
+				e.body.source = this.createSource(filePath);
+			}
 			this.sendEvent(e);
 		});
 		this._runtime.on('end', () => {
