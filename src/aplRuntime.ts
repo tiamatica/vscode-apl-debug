@@ -197,7 +197,6 @@ export class AplRuntime extends EventEmitter {
 		let nb = 0; // nb:length in b
 		let old; // old:have we warned about an old interpreter?
 		let handshakeDone = false;
-		const trunc = (x: string) => (x.length > this.maxl ? `${x.slice(0, this.maxl - 3)}...` : x);
 		this._client?.on('data', (x) => {
 			if (nb + x.length > b.length) {
 				const r = Buffer.alloc(2 ** Math.ceil(Math.log(nb + x.length) / Math.log(2)));
@@ -217,7 +216,7 @@ export class AplRuntime extends EventEmitter {
 				const m = `${b.slice(ib + 8, ib + n)}`;
 				ib += n;
 				nb -= n;
-				this.log(`recv ${trunc(m)}`);
+				this.log(`recv ${this.trunc(m)}`);
 				if (m[0] === '[') {
 					const u = JSON.parse(m);
 					this.recv(u[0], u[1]);
@@ -336,9 +335,9 @@ export class AplRuntime extends EventEmitter {
 		this.rrd();
 	}
 
-	private trunc = (x) => (x.length > this.maxl ? `${x.slice(0, this.maxl - 3)}...` : x);
-
-	private toBuf(x) {
+	private trunc = (x: string) => (x.length > this.maxl ? `${x.slice(0, this.maxl - 3)}...` : x);
+		
+	private toBuf(x: string) {
 		const b = Buffer.from(`xxxxRIDE${x}`);
 		b.writeInt32BE(b.length, 0);
 		return b;
