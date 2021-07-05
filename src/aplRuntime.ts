@@ -288,7 +288,8 @@ export class AplRuntime extends EventEmitter {
 		this.sendEach([
 			'SupportedProtocols=2', 'UsingProtocol=2',
 			'["Identify",{"identity":1}]', '["Connect",{"remoteId":2}]', '["GetWindowLayout",{}]',
-			'["Subscribe",{"status":["statusfields","stack","threads"]}]'
+			// '["Subscribe",{"status":["statusfields","stack","threads"]}]'
+			'["Subscribe",{"status":["statusfields"]}]'
 		]);
 	}
 
@@ -601,6 +602,7 @@ export class AplRuntime extends EventEmitter {
 				frames: frames,
 				count: x.stack.length
 			});
+			delete this._siStackPromise;
 		}
 	}
 	private replyGetThreads(x: ReplyGetThreadsMessage) {
@@ -681,21 +683,33 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private _siStack: any;
+	private _siStackPromise: any;
 	/**
 	 * Get stack
 	 */
 	public getSIStack(): PromiseLike<IStack> {
-		return new Promise((resolve, reject) => {
+		if (this._siStackPromise) {
+			return this._siStackPromise;
+		}
+		this._siStackPromise = new Promise((resolve, reject) => {
 			this._siStack = { resolve, reject };
 			this.send('GetSIStack', {});
 		});
+		return this._siStackPromise;
 	}
 
 	private _valueTip = {};
 	/**
 	 * Get Value Tip
 	 */
-	public getValueTip(line: string, pos: number, token: number, win: number = 0): PromiseLike<ValueTipMessage> {
+	public getValueTip(
+		line: string, 
+		pos: number, 
+		token: number, 
+		win: number = 0, 
+		maxWidth :number = 200, 
+		maxHeight: number = 100): PromiseLike<ValueTipMessage> {
+		setTimeout(() => { this._valueTip[token]?.resolve(); }, 100);
 		return new Promise((resolve, reject) => {
 			this._valueTip[token] = { resolve, reject };
 			this.send('GetValueTip', { // ask interpreter
@@ -703,8 +717,8 @@ export class AplRuntime extends EventEmitter {
 				token,
 				line,
 				pos,
-				maxWidth: 200,
-				maxHeight: 100,
+				maxWidth,
+				maxHeight,
 			  });
 		});
 	}

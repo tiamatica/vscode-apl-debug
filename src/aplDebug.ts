@@ -50,6 +50,7 @@ export class AplDebugSession extends LoggingDebugSession {
 	private _runtime: AplRuntime;
 
 	private _variableHandles = new Handles<string>();
+	private _toolTipSeq: number = 100000;
 
 	private _configurationDone = new Subject();
 
@@ -276,7 +277,7 @@ export class AplDebugSession extends LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
-	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
+	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request): void {
 		this._runtime.getSIStack()
 		.then((stk) => {
 			response.body = {
@@ -366,7 +367,7 @@ export class AplDebugSession extends LoggingDebugSession {
 		} else {
 			const parentNodeId = this._varMap[args.variablesReference] || 0;
 			const treenode = await this._runtime.getTreeList(parentNodeId);
-			variables = treenode.names.map((name, index) => {
+			const vars = treenode.names.map(async (name, index) => {
 				const kind = this.classMap(treenode.classes[index]);
 				const evaluateName = parentNodeId === 0 ? name : `${parent}.${name}`;
 				const debugVar = { 
@@ -377,6 +378,10 @@ export class AplDebugSession extends LoggingDebugSession {
 					presentationHint: { kind },
 					variablesReference: 0
 				} as DebugProtocol.Variable;
+				const evalm = await this._runtime.getValueTip(evaluateName, 0, this._toolTipSeq++, 0, 100, 100);
+				if (evalm) {
+					debugVar.value = evalm.tip.join('\n');
+				}
 				const nodeId = treenode.nodeIds[index];
 				if (nodeId !== 0) {
 					const varHandle = Object.keys(this._varMap).find((k) => this._varMap[k] === nodeId);
@@ -389,6 +394,7 @@ export class AplDebugSession extends LoggingDebugSession {
 				}
 				return debugVar;
 			});
+			variables = await Promise.all(vars);
 		}	
 		response.body = {
 			variables: variables
