@@ -4,6 +4,7 @@
 
 import { EventEmitter } from 'events';
 import * as cp from 'child_process';
+import * as Path from 'path';
 import * as Net from 'net';
 import { Subject } from 'await-notify';
 
@@ -56,6 +57,12 @@ export class AplRuntime extends EventEmitter {
 
 	// maps from sourceFile to array of APL breakpoints
 	private _breakPoints = new Map<string, IAplBreakpoint[]>();
+	
+	// link info returned from interpreter
+	private _linkInfo: string[][] = [];
+
+	// maps from sourceFile to APL name
+	private _linkMap = {};
 
 	// since we want to send breakpoint events, we will assign an id to every event
 	// so that the frontend can match events with breakpoints.
@@ -85,6 +92,9 @@ export class AplRuntime extends EventEmitter {
 
 	private maxl = 1000;
 
+	private normPath = (path: string) => path.replace(/^\w:/, m => m.toUpperCase());
+		
+
 	constructor(private _fileAccessor: FileAccessor) {
 		super();
 		this._startTime = Date.now();
@@ -113,19 +123,41 @@ export class AplRuntime extends EventEmitter {
 		if (this._sourceFile) {
 			this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`);
 		}
-		await this._fileAccessor.deleteFile(this._link);
-		this.exec(0, `(⊂⎕JSON{(⍕2⊃⍵)@2⊢⍵}¨5177⌶⍬)⎕NPUT '${this._link}' 1`);
-		this._fileAccessor.checkExists(this._link, 5000)
-		.then(() => this._fileAccessor.readFile(this._link))
-		.then((data) => {
-			this._linkInfo = JSON.parse(data);
-		}).catch(this.err);
+		await this.getLinkInfo();
+		this.initialiseBreakpoints();
 		if (this._sourceFile) {
 			this.exec(this._trace ? 1 : 0, '⍎name');
 		}
+	}
 
+	private async getLinkInfo() {
+		await this._fileAccessor.deleteFile(this._link);
+		this.exec(0, `(⊂⎕JSON{(⍕2⊃⍵)@2⊢⍵}¨5177⌶⍬)⎕NPUT '${this._link}' 1`);
+		return this._fileAccessor.checkExists(this._link, 5000)
+		.then(() => this._fileAccessor.readFile(this._link))
+		.then((data) => {
+			this._linkInfo = JSON.parse(data);
+			const map = {};
+			this._linkInfo.forEach(x => {
+				const aplName = `${x[1]}.${x[0]}`;
+				const filePath = Path.resolve(x[3]);
+				map[aplName] = filePath;
+				map[filePath] = aplName;
+			});
+			this._linkMap = map;
+		}).catch(this.err);
 	}
 	
+	private initialiseBreakpoints() {
+		this._breakPoints.forEach((bps, path) =>{
+			const aplName = this._linkMap[path];
+			if (bps.length && aplName){
+				const lines = bps.map(bp => bp.line).join(' ');
+				this.exec(0, `{}${lines} ⎕STOP '${aplName}'`);
+			}
+		});
+	}
+
 	private _terminate: any;
 	/**
 	 * Stop debug session.
@@ -314,7 +346,6 @@ export class AplRuntime extends EventEmitter {
 		}
 	}
 
-	private _linkInfo: string[][] = [];
 	private add(text: string) {
 		this.sendEvent('output', text, this._sourceFile, 'stdout');
 	}
@@ -350,9 +381,12 @@ export class AplRuntime extends EventEmitter {
 		}
 	}
 
-	private send(x: string, y: object) {
+	private async send(x: string, y: object) {
 		if (this.promptType
 			|| /Interrupt$|TreeList|Reply|FormatCode|GetAutocomplete|SaveChanges|CloseWindow|Exit/.test(x)) {
+			this.sendEach([JSON.stringify([x, y])]);
+		} else {
+			await this._sessionReady.wait();
 			this.sendEach([JSON.stringify([x, y])]);
 		}
 	}
@@ -416,8 +450,6 @@ export class AplRuntime extends EventEmitter {
 		// this.add(x.input);
 	}
 
-	private bannerDone = 0;
-
 	private setPromptType(x: SetPromptTypeMessage) {
 		const t = x.type;
 		this.promptType = t;
@@ -425,9 +457,8 @@ export class AplRuntime extends EventEmitter {
 		// else eachWin((w) => { w.prompt(t); });
 		// (t === 2 || t === 4) && ide.wins[0].focus(); // ⎕ / ⍞ input
 		// t === 1 && ide.getStats();
-		if (t === 1 && this.bannerDone === 0) {
-			this.bannerDone = 1;
-			this._sessionReady.notify();
+		if (t === 1) {
+			this._sessionReady.notifyAll();
 		}
 	}
 
@@ -499,7 +530,9 @@ export class AplRuntime extends EventEmitter {
 	private openWindow(x: OpenWindowMessage) {
 		this._windows[x.token] = x;
 		this._winId = x.token;
-		this.sendEvent('openWindow', { filename: x.filename });
+		const filename = Path.resolve(x.filename);
+		this.sendEvent('openWindow', { filename });
+		this.verifyBreakpoints(filename, x.stop);
 	}
 	private showHTML(x: ShowHTMLMessage) {
 		// if (D.el) {
@@ -555,11 +588,11 @@ export class AplRuntime extends EventEmitter {
 		if (this._siStack) {
 			const frames: IStackFrame[] = x.stack.map((s, i) => {
 				const m = /(.*)\[(\d+)\]/.exec(s.description) || [];
-				const link = this._linkInfo.find(x => `${x[1]}.${x[0]}` === m[1]) || [];
+				const file = this._linkMap[m[1]];
 				const frame: IStackFrame = {
 					index: i,
 					name: m[1],
-					file: link[3],
+					file,
 					line: +m[2],
 				};
 				return frame;
@@ -730,7 +763,11 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	public getBreakpoints(path: string, line: number): number[] {
-
+		const filePath = this.normPath(path);
+		let bps = this._breakPoints.get(filePath);
+		if (bps && bps.some(bp => bp.line === line)) {
+			return [0];
+		}
 		return [];
 	}
 
@@ -739,15 +776,22 @@ export class AplRuntime extends EventEmitter {
 	 */
 	public async setBreakPoint(path: string, line: number): Promise<IAplBreakpoint> {
 
-		const bp: IAplBreakpoint = { verified: false, line, id: this._breakpointId++ };
-		let bps = this._breakPoints.get(path);
+		const filePath = this.normPath(path);
+		let bps = this._breakPoints.get(filePath);
 		if (!bps) {
 			bps = new Array<IAplBreakpoint>();
-			this._breakPoints.set(path, bps);
+			this._breakPoints.set(filePath, bps);
 		}
-		bps.push(bp);
-		this.send('SetLineAttributes', { win: this._winId, stop: bps.map(bp => bp.line) });
-		await this.verifyBreakpoints(path);
+		let bp: IAplBreakpoint | undefined = bps.find(bp => bp.line === line);
+		if (!bp) {
+			bp = { verified: false, line, id: this._breakpointId++ };
+			bps.push(bp);
+		}
+		const aplName = this._linkMap[filePath];
+		if (aplName) {
+			const lines = bps.map(bp => bp.line).join(' ');
+			this.exec(0, `{}${lines} ⎕STOP '${aplName}'`);
+		}
 
 		return bp;
 	}
@@ -772,7 +816,7 @@ export class AplRuntime extends EventEmitter {
 	 * Clear all breakpoints for file.
 	 */
 	public clearBreakpoints(path: string): void {
-		this._breakPoints.delete(path);
+		this._breakPoints.delete(this.normPath(path));
 	}
 
 	/*
@@ -802,7 +846,7 @@ export class AplRuntime extends EventEmitter {
 		}
 	}
 
-	private async verifyBreakpoints(path: string): Promise<void> {
+	private async verifyBreakpoints(path: string, lines: number[]): Promise<void> {
 
 		if (this._noDebug) {
 			return;
@@ -811,7 +855,7 @@ export class AplRuntime extends EventEmitter {
 		const bps = this._breakPoints.get(path);
 		if (bps) {
 			bps.forEach(bp => {
-				if (!bp.verified) {
+				if (!bp.verified && lines.includes(bp.line)) {
 					bp.verified = true;
 					this.sendEvent('breakpointValidated', bp);				
 				}
