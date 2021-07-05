@@ -87,6 +87,17 @@ export class AplDebugSession extends LoggingDebugSession {
 		this._runtime.on('openWindow', (opt) => {
 			vscode.window.showTextDocument(vscode.Uri.file(opt.filename));
 		});
+		this._runtime.on('openWebView', (opt) => {
+			const panel = vscode.window.createWebviewPanel(
+				'aplWebView',
+				opt.title,
+				vscode.ViewColumn.One,
+				{}
+			  );
+		
+			// And set its HTML content
+			panel.webview.html = opt.html;
+		});
 		
 		this._runtime.on('stopOnEntry', () => {
 			this.sendEvent(new StoppedEvent('entry', AplDebugSession.threadID));
