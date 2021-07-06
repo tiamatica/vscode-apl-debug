@@ -809,7 +809,13 @@ export class AplRuntime extends EventEmitter {
 	 * Clear all breakpoints for file.
 	 */
 	public clearBreakpoints(path: string): void {
-		this._breakPoints.delete(this.normPath(path));
+		const filePath = this.normPath(path);
+		this._breakPoints.delete(filePath);
+		const aplName = this._linkMap[filePath];
+		if (aplName) {
+			this.exec(0, `{}⍬ ⎕STOP '${aplName}'`);
+		}
+
 	}
 
 	/*
