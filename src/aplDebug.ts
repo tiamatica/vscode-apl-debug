@@ -31,6 +31,8 @@ interface ILaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
 	program: string;
 	/** Path to the dyalog executable to use for the debug session. */
 	exe: string;
+	/** Absolute path to a Dyalog configuration file (*.dcfg). */
+	dyalogCfg?: string;
 	/** An absolute path to the folder to load into debugger. */
 	cwd: string;
 	/** Automatically stop target after launch. If not specified, target does not stop. */
@@ -205,7 +207,7 @@ export class AplDebugSession extends LoggingDebugSession {
 		await this._configurationDone.wait(1000);
 
 		// start the program in the runtime
-		await this._runtime.start(args.exe, args.program, args.cwd, !!args.stopOnEntry, !!args.noDebug);
+		await this._runtime.start(args.exe, args.dyalogCfg, args.program, args.cwd, !!args.stopOnEntry, !!args.noDebug);
 
 		this.sendResponse(response);
 	}

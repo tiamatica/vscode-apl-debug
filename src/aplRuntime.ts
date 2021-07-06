@@ -78,6 +78,7 @@ export class AplRuntime extends EventEmitter {
 	private _client?: Net.Socket;
 
 	private _exe = 'dyalog.exe';
+	private _dyalogCfg: string | undefined;
 	private _child?: cp.ChildProcess;
 
 	private promptType = 0;
@@ -103,11 +104,12 @@ export class AplRuntime extends EventEmitter {
 	/**
 	 * Start executing the given program.
 	 */
-	public async start(exe: string, program: string, folder: string, stopOnEntry: boolean, noDebug: boolean): Promise<void> {
+	public async start(exe: string, dcfg:string | undefined, program: string, folder: string, stopOnEntry: boolean, noDebug: boolean): Promise<void> {
 
 		if (exe) {
 			this._exe = exe;
 		}
+		this._dyalogCfg = dcfg;
 		this._noDebug = noDebug;
 		this._sourceFile = program;
 		this._folder = folder;
@@ -178,7 +180,11 @@ export class AplRuntime extends EventEmitter {
 			CLASSICMODE: '1',
 			SINGLETRACE: '1',
 			RIDE_SPAWNED: '1',
+			TRACE_ON_ERROR: '1',
 		};
+		if (this._dyalogCfg) {
+			env["ConfigFile"] = this._dyalogCfg;
+		}
 		/* eslint-enable  @typescript-eslint/naming-convention */
 
 		let srv = Net.createServer((y) => {

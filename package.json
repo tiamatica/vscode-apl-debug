@@ -1,7 +1,7 @@
 {
   "name": "apl-debug",
   "displayName": "APL Debug",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "Tiamatica",
   "description": "APL debug adapter for VS Code.",
   "author": {
@@ -158,6 +158,11 @@
                 "description": "Absolute path to a foler.",
                 "default": "${workspaceFolder}"
               },
+              "dyalogCfg": {
+                "type": "string",
+                "description": "Absolute path to a Dyalog configuration file (*.dcfg).",
+                "default": ""
+              },
               "stopOnEntry": {
                 "type": "boolean",
                 "description": "Automatically stop after launch.",
@@ -177,6 +182,7 @@
             "request": "launch",
             "name": "Ask for file name",
             "exe": "dyalog.exe",
+            "dyalogCfg": "",
             "program": "${workspaceFolder}/${command:AskForProgramName}",
             "cwd": "${workspaceFolder}",
             "stopOnEntry": true
@@ -191,6 +197,7 @@
               "request": "launch",
               "name": "Ask for file name",
               "exe": "dyalog.exe",
+              "dyalogCfg": "",
               "program": "^\"\\${workspaceFolder}/\\${command:AskForProgramName}\"",
               "cwd": "^\"\\${workspaceFolder}\"",
               "stopOnEntry": true
