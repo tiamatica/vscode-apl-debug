@@ -542,7 +542,7 @@ export class AplRuntime extends EventEmitter {
 		this.verifyBreakpoints(filename, x.stop);
 	}
 	private showHTML(x: ShowHTMLMessage) {
-		this.sendEvent('openWebView', x);
+		this.sendEvent('openWebview', x);
 	}
 	private optionsDialog(x: OptionsDialogMessage) {
 		// D.util.optionsDialog(x, (r) => {

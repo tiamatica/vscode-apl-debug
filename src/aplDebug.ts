@@ -86,14 +86,17 @@ export class AplDebugSession extends LoggingDebugSession {
 				}
 			);
 		});
-		this._runtime.on('openWindow', (opt) => {
+		this._runtime.on('openWindow', (opt: OpenWindowMessage) => {
 			vscode.window.showTextDocument(vscode.Uri.file(opt.filename));
 		});
-		this._runtime.on('openWebView', (opt) => {
+		this._runtime.on('openWebview', (opt: ShowHTMLMessage) => {
 			const panel = vscode.window.createWebviewPanel(
-				'aplWebView',
+				'aplWebview',
 				opt.title,
-				vscode.ViewColumn.One,
+				{
+					preserveFocus: true,
+					viewColumn: vscode.ViewColumn.Two
+				},
 				{}
 			  );
 		
