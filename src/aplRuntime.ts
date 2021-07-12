@@ -711,7 +711,7 @@ export class AplRuntime extends EventEmitter {
 	/**
 	 * Reply to TaskDialog
 	 */
-	 public replyTaskDialog(index: number, token: number) {
+	public replyTaskDialog(index: number, token: number) {
 		this.send('ReplyTaskDialog', { index, token });
 	}
 
