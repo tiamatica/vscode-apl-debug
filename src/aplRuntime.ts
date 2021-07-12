@@ -695,15 +695,15 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	/**
-		 * Cutback
-		 */
+	 * Cutback
+	 */
 	public cutback() {
 		this.send('Cutback', { win: this._winId });
 	}
 
 	/**
-		 * Step Over
-		 */
+	 * Step Over
+	 */
 	public stepOver() {
 		this.send('RunCurrentLine', { win: this._winId });
 	}
