@@ -8,7 +8,7 @@ import {
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
 	// ProgressStartEvent, ProgressUpdateEvent, ProgressEndEvent, 
 	InvalidatedEvent,
-	Thread, StackFrame, Scope, Source, Handles, Breakpoint
+	Thread, StackFrame, Scope, Source, Handles, Breakpoint, ContinuedEvent
 } from 'vscode-debugadapter';
 import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
@@ -86,6 +86,9 @@ export class AplDebugSession extends LoggingDebugSession {
 				}
 			);
 		});
+		this._runtime.on('closeWindow', (opt: OpenWindowMessage) => {
+			this.sendEvent(new ContinuedEvent(AplDebugSession.threadID));
+		});
 		this._runtime.on('openWindow', (opt: OpenWindowMessage) => {
 			vscode.window.showTextDocument(vscode.Uri.file(opt.filename));
 		});
@@ -161,7 +164,7 @@ export class AplDebugSession extends LoggingDebugSession {
 		response.body.supportsEvaluateForHovers = true;
 
 		// make VS Code show a 'step back' button
-		response.body.supportsStepBack = true;
+		response.body.supportsStepBack = false;
 
 		// make VS Code support data breakpoints
 		response.body.supportsDataBreakpoints = true;
@@ -423,18 +426,8 @@ export class AplDebugSession extends LoggingDebugSession {
 		this.sendResponse(response);
 	}
 
-	protected reverseContinueRequest(response: DebugProtocol.ReverseContinueResponse, args: DebugProtocol.ReverseContinueArguments): void {
-		this._runtime.continue(true);
-		this.sendResponse(response);
- 	}
-
 	protected nextRequest(response: DebugProtocol.NextResponse, args: DebugProtocol.NextArguments): void {
 		this._runtime.step();
-		this.sendResponse(response);
-	}
-
-	protected stepBackRequest(response: DebugProtocol.StepBackResponse, args: DebugProtocol.StepBackArguments): void {
-		this._runtime.step(true);
 		this.sendResponse(response);
 	}
 
@@ -502,15 +495,29 @@ export class AplDebugSession extends LoggingDebugSession {
 	}
 
 	protected customRequest(command: string, response: DebugProtocol.Response, args: any) {
-		if (command === 'toggleFormatting') {
-			this._showHex = ! this._showHex;
-			if (this._useInvalidatedEvent) {
-				this.sendEvent(new InvalidatedEvent( ['variables'] ));
-			}
-			this.sendResponse(response);
-		} else {
-			super.customRequest(command, response, args);
-		}
+		switch (command){
+			case 'togglFormatting':
+				this._showHex = ! this._showHex;
+				if (this._useInvalidatedEvent) {
+					this.sendEvent(new InvalidatedEvent( ['variables'] ));
+				}
+				this.sendResponse(response); break;
+				
+			case 'traceBackward':
+				this._runtime.traceBackward();
+				this.sendResponse(response); break;
+				
+			case 'traceForward':
+				this._runtime.traceForward();
+				this.sendResponse(response); break;
+				
+			case 'cutback':
+				this._runtime.cutback();
+				this.sendResponse(response); break;
+				
+			default:
+				super.customRequest(command, response, args); break;			
+				}
 	}
 
 	//---- helpers

@@ -532,7 +532,10 @@ export class AplRuntime extends EventEmitter {
 		// const w = ide.wins[x.win]; w && w.saved(x.err); 
 	}
 	private closeWindow(x: CloseWindowMessage) {
+		const win = this._windows[x.win];
+		const filename = Path.resolve(win.filename);
 		delete this._windows[x.win];
+		this.sendEvent('closeWindow', { filename });
 	}
 	private openWindow(x: OpenWindowMessage) {
 		this._windows[x.token] = x;
@@ -677,6 +680,69 @@ export class AplRuntime extends EventEmitter {
 		return this._siStackPromise;
 	}
 
+	/**
+	 * Trace backward
+	 */
+	 public traceBackward() {
+		this.send('TraceBackward', { win: this._winId });
+	}
+
+	/**
+	 * Trace forward
+	 */
+	 public traceForward() {
+		this.send('TraceForward', { win: this._winId });
+	}
+
+	/**
+	 * Cutback
+	 */
+	public cutback() {
+		this.send('Cutback', { win: this._winId });
+	}
+
+	/**
+	 * Step Over
+	 */
+	public stepOver() {
+		this.send('RunCurrentLine', { win: this._winId });
+	}
+
+	/**
+	 * Reply to TaskDialog
+	 */
+	public replyTaskDialog(index: number, token: number) {
+		this.send('ReplyTaskDialog', { index, token });
+	}
+
+	/**
+	 * Continue execution to the end/beginning.
+	 */
+	public continue() {
+		this.send('Continue', { win: this._winId });
+	}
+
+	/**
+	 * Step to the next/previous line.
+	 */
+	public step() {
+		this.send('RunCurrentLine', { win: this._winId });
+	}
+
+	/**
+	 * Step into
+	 */
+	public stepIn(targetId: number | undefined) {
+		this.send('StepInto', { win: this._winId });
+	}
+	
+	/**
+	 * Request resume execution of the current function, but stop on the next line of the calling function.
+	 */
+	public stepOut() {
+		this.send('ContinueTrace', { win: this._winId });
+	}
+
 	private _valueTip = {};
 	/**
 	 * Get Value Tip
@@ -711,44 +777,6 @@ export class AplRuntime extends EventEmitter {
 			this._treelist[nodeId] = { resolve, reject };
 			this.send('TreeList', { nodeId });
 		});
-	}
-
-
-	/**
-	 * Reply to TaskDialog
-	 */
-	public replyTaskDialog(index: number, token: number) {
-		this.send('ReplyTaskDialog', { index, token });
-	}
-
-	/**
-	 * Continue execution to the end/beginning.
-	 */
-	public continue(reverse = false) {
-		this.run(reverse, undefined);
-	}
-
-	/**
-	 * Step to the next/previous non empty line.
-	 */
-	public step(reverse = false, event = 'stopOnStep') {
-		this.run(reverse, event);
-	}
-
-	/**
-	 * Step into
-	 */
-	public stepIn(targetId: number | undefined) {
-		this.send('StepInto', { win: this._winId });
-		this.sendEvent('stopOnStep');
-
-	}
-
-	/**
-	 * "Step out" for APL debug means: go to previous character
-	 */
-	public stepOut() {
-		this.sendEvent('stopOnStep');
 	}
 
 	public getStepInTargets(frameId: number): IStepInTargets[] {
@@ -826,24 +854,6 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	// private methods
-
-	/**
-	 * Run through the file.
-	 * If stepEvent is specified only run a single step and emit the stepEvent.
-	 */
-	private run(reverse = false, stepEvent?: string) {
-		if (reverse) {
-			this.send('TraceBackward', { win: this._winId });
-		} else {
-			if (stepEvent) {
-				this.send('RunCurrentLine', { win: this._winId });
-			} else {
-				this.send('Continue', { win: this._winId });
-			}
-			// no more lines: run to end
-			// this.sendEvent('end');
-		}
-	}
 
 	private async verifyBreakpoints(path: string, lines: number[]): Promise<void> {
 

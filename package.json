@@ -77,7 +77,54 @@
     "request": "never"
   },
   "contributes": {
+    "keybindings": [
+      {
+        "command": "extension.apl-debug.traceBackward",
+        "key": "ctrl+shift+backspace",
+        "when": "debugState == 'stopped'"
+      },
+      {
+        "command": "extension.apl-debug.traceForward",
+        "key": "ctrl+shift+enter",
+        "when": "debugState == 'stopped'"
+      },
+      {
+        "command": "extension.apl-debug.cutback",
+        "key": "escape",
+        "when": "debugState == 'stopped'"
+      },
+      {
+        "command": "workbench.action.debug.stepOver",
+        "key": "enter",
+        "when": "debugState == 'stopped'"
+      },
+      {
+        "command": "workbench.action.debug.stepInto",
+        "key": "ctrl+enter",
+        "when": "debugState == 'stopped'"
+      }
+    ],
     "menus": {
+      "debug/toolBar": [
+        {
+          "command": "extension.apl-debug.traceBackward",
+          "group": "1_debug",
+          "when": "resourceLangId == apl",
+          "order": 1
+        },
+        {
+          "command": "extension.apl-debug.traceForward",
+          "group": "1_debug",
+          "when": "resourceLangId == apl",
+          "order": 2
+        },
+        {
+          "command": "extension.apl-debug.cutback",
+          "group": "1_debug",
+          "when": "resourceLangId == apl",
+          "order": 3
+        }
+      ],
       "editor/title/run": [
         {
           "command": "extension.apl-debug.runEditorContents",
@@ -121,6 +168,24 @@
         "icon": "$(play)"
       },
       {
+        "command": "extension.apl-debug.traceBackward",
+        "title": "Trace Back",
+        "enablement": "inDebugMode && debugState == 'stopped'",
+        "icon": "$(arrow-left)"
+      },
+      {
+        "command": "extension.apl-debug.traceForward",
+        "title": "Trace Forward",
+        "enablement": "inDebugMode && debugState == 'stopped'",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "extension.apl-debug.cutback",
+        "title": "Cutback",
+        "enablement": "inDebugMode && debugState == 'stopped'",
+        "icon": "$(error)"
+      },
+      {
         "command": "extension.apl-debug.toggleFormatting",
         "title": "Toggle between decimal and hex formatting"
       }
@@ -141,7 +206,10 @@
         "runtime": "node",
         "configurationAttributes": {
           "launch": {
-            "required": ["program", "exe"],
+            "required": [
+              "program",
+              "exe"
+            ],
             "properties": {
               "program": {
                 "type": "string",
