@@ -51,6 +51,24 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 			if (ds) {
 				ds.customRequest('toggleFormatting');
 			}
+		}),
+		vscode.commands.registerCommand('extension.apl-debug.traceBackward', (variable) => {
+			const ds = vscode.debug.activeDebugSession;
+			if (ds) {
+				ds.customRequest('traceBackward');
+			}
+		}),
+		vscode.commands.registerCommand('extension.apl-debug.traceForward', (variable) => {
+			const ds = vscode.debug.activeDebugSession;
+			if (ds) {
+				ds.customRequest('traceForward');
+			}
+		}),
+		vscode.commands.registerCommand('extension.apl-debug.cutback', (variable) => {
+			const ds = vscode.debug.activeDebugSession;
+			if (ds) {
+				ds.customRequest('cutback');
+			}
 		})
 	);
 
