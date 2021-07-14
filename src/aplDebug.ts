@@ -221,7 +221,7 @@ export class AplDebugSession extends LoggingDebugSession {
 		await this._runtime.terminate();
 		this.sendResponse(response);
 	}
-    
+	
 	protected async terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request) {
 		await this._runtime.terminate();
 		this.sendResponse(response);
@@ -318,8 +318,7 @@ export class AplDebugSession extends LoggingDebugSession {
 
 		response.body = {
 			scopes: [
-				new Scope("Global", this._variableHandles.create("global"), false),
-				new Scope("Status", this._variableHandles.create("status"), false)
+				new Scope("Global", this._variableHandles.create("global"), false)
 			]
 		};
 		this.sendResponse(response);
@@ -365,56 +364,38 @@ export class AplDebugSession extends LoggingDebugSession {
 
 		const a = args;
 		const parent = this._variableHandles.get(args.variablesReference);
-		let variables: DebugProtocol.Variable[];
-		if (parent === 'status') {
-			await new Promise(f => setTimeout(f, 10)); // give runtime a chance to process a fresh status update
-			const status = this._runtime.status;
-			if (!status) {
-				return response;
-			}
-			variables = Object.keys(status).map((name) =>{
-				const kind = 'data';
-				return { 
-					name, 
-					value: `${status[name]}`,
-					type: kind,
-					presentationHint: { kind },
-					variablesReference: 0
-				} as DebugProtocol.Variable;
-			});
-
-		} else {
+		let variables: DebugProtocol.Variable[];		
 			const parentNodeId = this._varMap[args.variablesReference] || 0;
 			const treenode = await this._runtime.getTreeList(parentNodeId);
 			const vars = treenode.names.map(async (name, index) => {
-				const kind = this.classMap(treenode.classes[index]);
-				const evaluateName = parentNodeId === 0 ? name : `${parent}.${name}`;
-				const debugVar = { 
-					name, 
-					value: '',
-					evaluateName,
-					type: kind,
-					presentationHint: { kind },
-					variablesReference: 0
-				} as DebugProtocol.Variable;
-				const evalm = await this._runtime.getValueTip(evaluateName, 0, this._toolTipSeq++, 0, 100, 100);
-				if (evalm) {
-					debugVar.value = evalm.tip.join('\n');
+			const kind = this.classMap(treenode.classes[index]);
+			const evaluateName = parentNodeId === 0 ? name : `${parent}.${name}`;
+			const debugVar = {
+				name,
+				value: '',
+				evaluateName,
+				type: kind,
+				presentationHint: { kind },
+				variablesReference: 0
+			} as DebugProtocol.Variable;
+			const evalm = await this._runtime.getValueTip(evaluateName, 0, this._toolTipSeq++, 0, 100, 100);
+			if (evalm) {
+				debugVar.value = evalm.tip.join('\n');
+			}
+			const nodeId = treenode.nodeIds[index];
+			if (nodeId !== 0) {
+				const varHandle = Object.keys(this._varMap).find((k) => this._varMap[k] === nodeId);
+				if (varHandle) {
+					debugVar.variablesReference = +varHandle;
+				} else {
+					debugVar.variablesReference = this._variableHandles.create(evaluateName);
+					this._varMap[debugVar.variablesReference] = nodeId;
 				}
-				const nodeId = treenode.nodeIds[index];
-				if (nodeId !== 0) {
-					const varHandle = Object.keys(this._varMap).find((k) => this._varMap[k] === nodeId);
-					if (varHandle) {
-						debugVar.variablesReference = +varHandle;
-					} else {
-						debugVar.variablesReference = this._variableHandles.create(evaluateName);
-						this._varMap[debugVar.variablesReference] = nodeId;
-					}
-				}
-				return debugVar;
+			}
+			return debugVar;
 			});
 			variables = await Promise.all(vars);
-		}	
+			
 		response.body = {
 			variables: variables
 		};
