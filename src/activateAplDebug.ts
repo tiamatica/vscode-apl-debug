@@ -11,6 +11,7 @@ import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken 
 import { AplDebugSession } from './aplDebug';
 import { FileAccessor } from './aplRuntime';
 import { callbackify, promisify } from 'util';
+import { Variable } from 'vscode-debugadapter';
 
 export function activateAplDebug(context: vscode.ExtensionContext, factory?: vscode.DebugAdapterDescriptorFactory) {
 
@@ -44,6 +45,20 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 					program: targetResource.fsPath,
 					stopOnEntry: true
 				});
+			}
+		}),
+		vscode.commands.registerTextEditorCommand('extension.apl-debug.help', (resource: vscode.TextEditor) => {
+			let targetResource = resource;
+			if (!targetResource && vscode.window.activeTextEditor) {
+				targetResource = vscode.window.activeTextEditor;
+			}
+			const { document, selection } = targetResource;
+			const textline = document.lineAt(selection.active.line);
+			if (textline) {
+				const ds = vscode.debug.activeDebugSession;
+				if (ds) {
+					ds.customRequest('help', { line: textline.text, pos: selection.active.character });
+				}
 			}
 		}),
 		vscode.commands.registerCommand('extension.apl-debug.toggleFormatting', (variable) => {
