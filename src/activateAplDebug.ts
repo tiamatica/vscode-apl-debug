@@ -12,9 +12,17 @@ import { AplDebugSession } from './aplDebug';
 import { FileAccessor } from './aplRuntime';
 import { callbackify, promisify } from 'util';
 
+let aplStatusBarItem: vscode.StatusBarItem;
+
 export function activateAplDebug(context: vscode.ExtensionContext, factory?: vscode.DebugAdapterDescriptorFactory) {
 
+	// create a new status bar item that we can now manage
+	aplStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	aplStatusBarItem.show();
+	// aplStatusBarItem.command = myCommandId;
+	
 	context.subscriptions.push(
+		aplStatusBarItem,
 		vscode.commands.registerCommand('extension.apl-debug.runEditorContents', (resource: vscode.Uri) => {
 			let targetResource = resource;
 			if (!targetResource && vscode.window.activeTextEditor) {
@@ -130,6 +138,11 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 	if ('dispose' in factory) {
 		context.subscriptions.push(factory);
 	}
+	context.subscriptions.push(vscode.debug.onDidReceiveDebugSessionCustomEvent((customEvent) => {
+		if (customEvent.event === 'statusInformation') {
+			aplStatusBarItem.text = customEvent.body.text;
+		}
+	}));
 
 	// override VS Code's default implementation of the debug hover
 	context.subscriptions.push(vscode.languages.registerEvaluatableExpressionProvider('apl', {

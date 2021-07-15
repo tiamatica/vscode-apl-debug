@@ -596,23 +596,7 @@ export class AplRuntime extends EventEmitter {
 		// ide.dbg && ide.dbg.threads.render(x.threads);
 	}
 	private interpreterStatus(x: InterpreterStatusMessage) {
-		this._status = x;
-		// // update status bar fields here
-		// I.sb_ml.innerText = `⎕ML: ${x.ML}`;
-		// I.sb_io.innerText = `⎕IO: ${x.IO}`;
-		// I.sb_sis.innerText = `⎕SI: ${x.SI}`;
-		// // I.sb_trap.innerText = `⎕TRAP: ${x.TRAP}`; // TRAP doesn't display a value
-		// I.sb_dq.innerText = `⎕DQ: ${x.DQ}`;
-		// I.sb_threads.innerText = `&: ${x.NumThreads}`;
-		// I.sb_cc.innerText = `CC: ${x.CompactCount}`;
-		// I.sb_gc.innerText = `GC: ${x.GarbageCount}`;
-		// // Eventually we would like to read the default values from the interpreter.
-		// I.sb_ml.classList.toggle('active', x.ML !== 1);
-		// I.sb_io.classList.toggle('active', x.IO !== 1);
-		// I.sb_sis.classList.toggle('active', x.SI > 0);
-		// I.sb_trap.classList.toggle('active', x.TRAP !== 0);
-		// I.sb_dq.classList.toggle('active', x.DQ !== 0);
-		// I.sb_threads.classList.toggle('active', x.NumThreads > 1);
+		this.sendEvent('dyalogStatus', x);
 	}
 	private replyFormatCode(x: ReplyFormatCodeMessage) {
 		// const w = D.wins[x.win];

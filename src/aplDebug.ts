@@ -7,7 +7,7 @@ import {
 	LoggingDebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
 	// ProgressStartEvent, ProgressUpdateEvent, ProgressEndEvent, 
-	InvalidatedEvent,
+	InvalidatedEvent, Event,
 	Thread, StackFrame, Scope, Source, Handles, Breakpoint, ContinuedEvent
 } from 'vscode-debugadapter';
 import * as vscode from 'vscode';
@@ -77,9 +77,9 @@ export class AplDebugSession extends LoggingDebugSession {
 		// setup event handlers
 		this._runtime.on('taskDialog', (opt) => {
 			vscode.window.showQuickPick(opt.buttonText, { title: opt.text }).then(
-				(selected) =>{
+				(selected) => {
 					const index = opt.buttonText.indexOf(selected);
-					this._runtime.replyTaskDialog(index  < 0 ? -1 : 100 + index, opt.token);
+					this._runtime.replyTaskDialog(index < 0 ? -1 : 100 + index, opt.token);
 				},
 				(error) => {
 					this._runtime.replyTaskDialog(-1, opt.token);
@@ -101,8 +101,8 @@ export class AplDebugSession extends LoggingDebugSession {
 					viewColumn: vscode.ViewColumn.Two
 				},
 				{}
-			  );
-		
+			);
+
 			// And set its HTML content
 			panel.webview.html = opt.html;
 		});
@@ -142,7 +142,12 @@ export class AplDebugSession extends LoggingDebugSession {
 		this._runtime.on('end', () => {
 			this.sendEvent(new TerminatedEvent());
 		});
-	}
+		this._runtime.on('dyalogStatus', (x: InterpreterStatusMessage) => {
+			this.sendEvent(new Event('statusInformation', {
+				text: `&: ${x.NumThreads} | ⎕DQ: ${x.DQ} | ⎕SI: ${x.SI} | ⎕IO: ${x.IO} | ⎕ML: ${x.ML}`
+			}));
+		});
+	};
 
 	/**
 	 * The 'initialize' request is the first request called by the frontend
@@ -174,7 +179,7 @@ export class AplDebugSession extends LoggingDebugSession {
 
 		// make VS Code support completion in REPL
 		response.body.supportsCompletionsRequest = true;
-		response.body.completionTriggerCharacters = [ ".", "[" ];
+		response.body.completionTriggerCharacters = [".", "["];
 
 		// make VS Code send cancelRequests
 		response.body.supportsCancelRequest = true;
@@ -224,7 +229,7 @@ export class AplDebugSession extends LoggingDebugSession {
 		await this._runtime.terminate();
 		this.sendResponse(response);
 	}
-    
+
 	protected async terminateRequest(response: DebugProtocol.TerminateResponse, args: DebugProtocol.TerminateArguments, request?: DebugProtocol.Request) {
 		await this._runtime.terminate();
 		this.sendResponse(response);
@@ -242,7 +247,7 @@ export class AplDebugSession extends LoggingDebugSession {
 		const actualBreakpoints0 = clientLines.map(async l => {
 			const { verified, line, id } = await this._runtime.setBreakPoint(path, this.convertClientLineToDebugger(l));
 			const bp = new Breakpoint(verified, this.convertDebuggerLineToClient(line)) as DebugProtocol.Breakpoint;
-			bp.id= id;
+			bp.id = id;
 			return bp;
 		});
 		const actualBreakpoints = await Promise.all<DebugProtocol.Breakpoint>(actualBreakpoints0);
@@ -301,42 +306,41 @@ export class AplDebugSession extends LoggingDebugSession {
 
 	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments, request?: DebugProtocol.Request): void {
 		this._runtime.getSIStack()
-		.then((stk) => {
-			response.body = {
-				stackFrames: stk.frames.map(f => {
-					return new StackFrame(
-						f.index, 
-						f.name, 
-						this.createSource(f.file), 
-						this.convertDebuggerLineToClient(f.line)
-					);
-				}),
-				totalFrames: stk.count,
-			};
-			this.sendResponse(response);	
-		});
+			.then((stk) => {
+				response.body = {
+					stackFrames: stk.frames.map(f => {
+						return new StackFrame(
+							f.index,
+							f.name,
+							this.createSource(f.file),
+							this.convertDebuggerLineToClient(f.line)
+						);
+					}),
+					totalFrames: stk.count,
+				};
+				this.sendResponse(response);
+			});
 	}
 
 	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
 
 		response.body = {
 			scopes: [
-				new Scope("Global", this._variableHandles.create("global"), false),
-				new Scope("Status", this._variableHandles.create("status"), false)
+				new Scope("Global", this._variableHandles.create("global"), false)
 			]
 		};
 		this.sendResponse(response);
 	}
 
 	private classMap(nc: number): string {
-		switch(nc) {
+		switch (nc) {
 			case 2.1:
 			case 2.2:
 			case 2.6:
-			return 'data'; break;
-			
+				return 'data'; break;
+
 			case 2.3:
-			return 'property'; break;
+				return 'property'; break;
 
 			case 3.1:
 			case 3.2:
@@ -345,18 +349,18 @@ export class AplDebugSession extends LoggingDebugSession {
 			case 4.1:
 			case 4.2:
 			case 4.3:
-			return 'method'; break;
+				return 'method'; break;
 
-			case -1: 
+			case -1:
 			case 9.1:
 			case 9.2:
 			case 9.4:
 			case 9.6:
-			return 'class'; break;
+				return 'class'; break;
 
 			case 9.5:
 			case 9.7:
-			return 'interface'; break;
+				return 'interface'; break;
 
 			default: return 'virtual';
 		}
@@ -369,55 +373,37 @@ export class AplDebugSession extends LoggingDebugSession {
 		const a = args;
 		const parent = this._variableHandles.get(args.variablesReference);
 		let variables: DebugProtocol.Variable[];
-		if (parent === 'status') {
-			await new Promise(f => setTimeout(f, 10)); // give runtime a chance to process a fresh status update
-			const status = this._runtime.status;
-			if (!status) {
-				return response;
+		const parentNodeId = this._varMap[args.variablesReference] || 0;
+		const treenode = await this._runtime.getTreeList(parentNodeId);
+		const vars = treenode.names.map(async (name, index) => {
+			const kind = this.classMap(treenode.classes[index]);
+			const evaluateName = parentNodeId === 0 ? name : `${parent}.${name}`;
+			const debugVar = {
+				name,
+				value: '',
+				evaluateName,
+				type: kind,
+				presentationHint: { kind },
+				variablesReference: 0
+			} as DebugProtocol.Variable;
+			const evalm = await this._runtime.getValueTip(evaluateName, 0, this._toolTipSeq++, 0, 100, 100);
+			if (evalm) {
+				debugVar.value = evalm.tip.join('\n');
 			}
-			variables = Object.keys(status).map((name) =>{
-				const kind = 'data';
-				return { 
-					name, 
-					value: `${status[name]}`,
-					type: kind,
-					presentationHint: { kind },
-					variablesReference: 0
-				} as DebugProtocol.Variable;
-			});
+			const nodeId = treenode.nodeIds[index];
+			if (nodeId !== 0) {
+				const varHandle = Object.keys(this._varMap).find((k) => this._varMap[k] === nodeId);
+				if (varHandle) {
+					debugVar.variablesReference = +varHandle;
+				} else {
+					debugVar.variablesReference = this._variableHandles.create(evaluateName);
+					this._varMap[debugVar.variablesReference] = nodeId;
+				}
+			}
+			return debugVar;
+		});
+		variables = await Promise.all(vars);
 
-		} else {
-			const parentNodeId = this._varMap[args.variablesReference] || 0;
-			const treenode = await this._runtime.getTreeList(parentNodeId);
-			const vars = treenode.names.map(async (name, index) => {
-				const kind = this.classMap(treenode.classes[index]);
-				const evaluateName = parentNodeId === 0 ? name : `${parent}.${name}`;
-				const debugVar = { 
-					name, 
-					value: '',
-					evaluateName,
-					type: kind,
-					presentationHint: { kind },
-					variablesReference: 0
-				} as DebugProtocol.Variable;
-				const evalm = await this._runtime.getValueTip(evaluateName, 0, this._toolTipSeq++, 0, 100, 100);
-				if (evalm) {
-					debugVar.value = evalm.tip.join('\n');
-				}
-				const nodeId = treenode.nodeIds[index];
-				if (nodeId !== 0) {
-					const varHandle = Object.keys(this._varMap).find((k) => this._varMap[k] === nodeId);
-					if (varHandle) {
-						debugVar.variablesReference = +varHandle;
-					} else {
-						debugVar.variablesReference = this._variableHandles.create(evaluateName);
-						this._varMap[debugVar.variablesReference] = nodeId;
-					}
-				}
-				return debugVar;
-			});
-			variables = await Promise.all(vars);
-		}	
 		response.body = {
 			variables: variables
 		};
@@ -460,7 +446,7 @@ export class AplDebugSession extends LoggingDebugSession {
 			result: '',
 			variablesReference: 0
 		};
-		
+
 		if (args.context === 'repl') {
 			this._runtime.execute(args.expression);
 		} else if (args.context === 'hover') {
@@ -480,12 +466,12 @@ export class AplDebugSession extends LoggingDebugSession {
 	protected completionsRequest(response: DebugProtocol.CompletionsResponse, args: DebugProtocol.CompletionsArguments): void {
 
 		this._runtime.getAutocomplete(args.text, args.column - 1, 0)
-		.then((items) => {
-			response.body = {
-				targets: items.map(label => ({ label }))
-			};
-			this.sendResponse(response);	
-		});
+			.then((items) => {
+				response.body = {
+					targets: items.map(label => ({ label }))
+				};
+				this.sendResponse(response);
+			});
 	}
 
 	protected cancelRequest(response: DebugProtocol.CancelResponse, args: DebugProtocol.CancelArguments) {
@@ -498,22 +484,22 @@ export class AplDebugSession extends LoggingDebugSession {
 	}
 
 	protected customRequest(command: string, response: DebugProtocol.Response, args: any) {
-		switch (command){
+		switch (command) {
 			case 'togglFormatting':
-				this._showHex = ! this._showHex;
+				this._showHex = !this._showHex;
 				if (this._useInvalidatedEvent) {
-					this.sendEvent(new InvalidatedEvent( ['variables'] ));
+					this.sendEvent(new InvalidatedEvent(['variables']));
 				}
 				this.sendResponse(response); break;
-				
+
 			case 'traceBackward':
 				this._runtime.traceBackward();
 				this.sendResponse(response); break;
-				
+
 			case 'traceForward':
 				this._runtime.traceForward();
 				this.sendResponse(response); break;
-				
+
 			case 'cutback':
 				this._runtime.cutback();
 				this.sendResponse(response); break;
@@ -523,8 +509,8 @@ export class AplDebugSession extends LoggingDebugSession {
 				this.sendResponse(response); break;
 				
 			default:
-				super.customRequest(command, response, args); break;			
-				}
+				super.customRequest(command, response, args); break;
+		}
 	}
 
 	//---- helpers
