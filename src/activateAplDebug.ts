@@ -11,7 +11,6 @@ import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken 
 import { AplDebugSession } from './aplDebug';
 import { FileAccessor } from './aplRuntime';
 import { callbackify, promisify } from 'util';
-import { Variable } from 'vscode-debugadapter';
 
 export function activateAplDebug(context: vscode.ExtensionContext, factory?: vscode.DebugAdapterDescriptorFactory) {
 

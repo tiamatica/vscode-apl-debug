@@ -72,7 +72,7 @@
     "onCommand:extension.apl-debug.getProgramName",
     "onCommand:extension.apl-debug.runEditorContents",
     "onCommand:extension.apl-debug.debugEditorContents"
-    ],
+  ],
   "workspaceTrust": {
     "request": "never"
   },
