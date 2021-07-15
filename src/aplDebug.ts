@@ -107,16 +107,8 @@ export class AplDebugSession extends LoggingDebugSession {
 			panel.webview.html = opt.html;
 		});
 		this._runtime.on('openHelp', (opt: ReplyGetHelpInformationMessage) => {
-			let regex = /.*(18.1).*/;
-			let str = opt.url;
-			if (str.match(regex)) {
-				let newstr = str.replace(/18.1/, '18.0');
-				let html = vscode.Uri.parse(newstr);
-				vscode.commands.executeCommand('vscode.open', html);
-			} else {
 				let html = vscode.Uri.parse(opt.url);
 				vscode.commands.executeCommand('vscode.open', html); 
-			}
 		});					
 		this._runtime.on('stopOnEntry', () => {
 			this.sendEvent(new StoppedEvent('entry', AplDebugSession.threadID));
