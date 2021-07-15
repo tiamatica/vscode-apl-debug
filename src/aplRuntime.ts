@@ -594,7 +594,7 @@ export class AplRuntime extends EventEmitter {
 		// ide.dbg && ide.dbg.threads.render(x.threads);
 	}
 	private interpreterStatus(x: InterpreterStatusMessage) {
-		this.sendEvent('dyalogStatusBar', x);
+		this.sendEvent('dyalogStatus', x);
 	}
 	private replyFormatCode(x: ReplyFormatCodeMessage) {
 		// const w = D.wins[x.win];

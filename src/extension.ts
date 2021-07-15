@@ -50,7 +50,6 @@ export function deactivate() {
 	// nothing to do
 }
 
-
 class DebugAdapterExecutableFactory implements vscode.DebugAdapterDescriptorFactory {
 
 	// The following use of a DebugAdapter factory shows how to control what debug adapter executable is used.

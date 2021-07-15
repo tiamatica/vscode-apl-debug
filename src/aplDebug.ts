@@ -8,7 +8,7 @@ import {
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
 	// ProgressStartEvent, ProgressUpdateEvent, ProgressEndEvent, 
 	InvalidatedEvent, Event,
-	Thread, StackFrame, Scope, Source, Handles, Breakpoint, ContinuedEvent, ProgressUpdateEvent
+	Thread, StackFrame, Scope, Source, Handles, Breakpoint, ContinuedEvent
 } from 'vscode-debugadapter';
 import * as vscode from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
@@ -139,7 +139,7 @@ export class AplDebugSession extends LoggingDebugSession {
 		this._runtime.on('end', () => {
 			this.sendEvent(new TerminatedEvent());
 		});
-		this._runtime.on('dyalogStatusBar', (x: InterpreterStatusMessage) => {
+		this._runtime.on('dyalogStatus', (x: InterpreterStatusMessage) => {
 			this.sendEvent(new Event('statusInformation', {
 				text: `&: ${x.NumThreads} | ⎕DQ: ${x.DQ} | ⎕SI: ${x.SI} | ⎕IO: ${x.IO} | ⎕ML: ${x.ML}`
 			}));
