@@ -481,15 +481,17 @@ export class AplRuntime extends EventEmitter {
 	private windowTypeChanged(x: WindowTypeChangedMessage) {
 		// return ide.wins[x.win].setTC(x.tracer); 
 	}
+	
 	private replyGetAutocomplete(x: ReplyGetAutocompleteMessage) {
 		if (this._autocompletion) {
 			this._autocompletion.resolve(x.options);
 		}
 	}
+
 	private replyGetHelpInformation(x: ReplyGetHelpInformationMessage) {
-		// if (x.url.length === 0) ide.getHelpExecutor.reject('No help found');
-		// else ide.getHelpExecutor.resolve(x.url);
+		this.sendEvent("openHelp", x);
 	}
+
 	private replyGetLanguageBar(x: ReplyGetLanguageBarMessage) {
 		// const { entries } = x;
 		// D.lb.order = entries.map((k) => k.avchar || ' ').join('');
@@ -741,6 +743,13 @@ export class AplRuntime extends EventEmitter {
 	 */
 	public stepOut() {
 		this.send('ContinueTrace', { win: this._winId });
+	}
+
+	/**
+	 * Get help on current pos
+	 */
+	public getHelpInformation(message: GetHelpInformationMessage) {
+		this.send('GetHelpInformation', message);
 	}
 
 	private _valueTip = {};

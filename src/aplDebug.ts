@@ -106,7 +106,10 @@ export class AplDebugSession extends LoggingDebugSession {
 			// And set its HTML content
 			panel.webview.html = opt.html;
 		});
-		
+		this._runtime.on('openHelp', (opt: ReplyGetHelpInformationMessage) => {
+				let html = vscode.Uri.parse(opt.url);
+				vscode.commands.executeCommand('vscode.open', html); 
+		});					
 		this._runtime.on('stopOnEntry', () => {
 			this.sendEvent(new StoppedEvent('entry', AplDebugSession.threadID));
 		});
@@ -513,6 +516,10 @@ export class AplDebugSession extends LoggingDebugSession {
 				
 			case 'cutback':
 				this._runtime.cutback();
+				this.sendResponse(response); break;
+
+			case 'help':
+				this._runtime.getHelpInformation(args);
 				this.sendResponse(response); break;
 				
 			default:
