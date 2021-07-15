@@ -316,7 +316,6 @@ export class AplRuntime extends EventEmitter {
 			case 'CloseWindow': this.closeWindow(rideMessage[1] as CloseWindowMessage); break;
 			case 'Disconnect': this.disconnect(rideMessage[1] as DisconnectMessage); break;
 			case 'EchoInput': this.echoInput(rideMessage[1] as EchoInputMessage); break;
-			case 'GetHelpInformation': this.getHelpInformation(rideMessage[1] as GetHelpInformationMessage); break;
 			case 'GotoWindow': this.gotoWindow(rideMessage[1] as GotoWindowMessage); break;
 			case 'HadError': this.hadError(rideMessage[1] as HadErrorMessage); break;
 			case 'Identify': this.identify(rideMessage[1] as IdentifyMessage); break;
