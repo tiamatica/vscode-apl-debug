@@ -102,6 +102,10 @@
         "command": "workbench.action.debug.stepInto",
         "key": "ctrl+enter",
         "when": "debugState == 'stopped'"
+      },
+      {
+        "command": "extension.apl-debug.help",
+        "key": "F1"
       }
     ],
     "menus": {
@@ -184,6 +188,11 @@
         "title": "Cutback",
         "enablement": "inDebugMode && debugState == 'stopped'",
         "icon": "$(error)"
+      },
+      {
+        "command": "extension.apl-debug.help",
+        "title": "Show help for object at current pos",
+        "enablement": "inDebugMode && debugState != 'stopped'"
       },
       {
         "command": "extension.apl-debug.toggleFormatting",

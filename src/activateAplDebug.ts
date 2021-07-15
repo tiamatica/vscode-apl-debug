@@ -54,6 +54,20 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 				});
 			}
 		}),
+		vscode.commands.registerTextEditorCommand('extension.apl-debug.help', (resource: vscode.TextEditor) => {
+			let targetResource = resource;
+			if (!targetResource && vscode.window.activeTextEditor) {
+				targetResource = vscode.window.activeTextEditor;
+			}
+			const { document, selection } = targetResource;
+			const textline = document.lineAt(selection.active.line);
+			if (textline) {
+				const ds = vscode.debug.activeDebugSession;
+				if (ds) {
+					ds.customRequest('help', { line: textline.text, pos: selection.active.character });
+				}
+			}
+		}),
 		vscode.commands.registerCommand('extension.apl-debug.toggleFormatting', (variable) => {
 			const ds = vscode.debug.activeDebugSession;
 			if (ds) {
