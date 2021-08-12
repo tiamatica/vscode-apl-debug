@@ -11,6 +11,10 @@ interface DisconnectMessage {
 interface EchoInputMessage {
 	input: string;
 }
+interface FormatCodeMessage {
+	win: number;
+	text: string[];
+}
 interface GetHelpInformationMessage {
 	line: string;
 	pos: number;
@@ -144,7 +148,7 @@ interface ReplyTreeListMessage {
 	nodeId: number;
 	nodeIds: number[];
 	names: string[],
-    classes: number[];
+	classes: number[];
 	err: string;
 }
 interface SetHighlightLineMessage {
@@ -203,16 +207,16 @@ interface RideMessage {
 	length: 2;
 	0: string;
 	1: AppendSessionOutputMessage | CloseWindowMessage | DisconnectMessage | EchoInputMessage |
-		GetHelpInformationMessage | GotoWindowMessage | HadErrorMessage |
-		IdentifyMessage | InterpreterStatusMessage | InternalErrorMessage |
-		NotificationMessage | OpenWindowMessage |
-		OptionsDialogMessage | ReplyClearTraceStopMonitorMessage | ReplyFormatCodeMessage |
-		ReplyGetAutocompleteMessage | ReplyGetConfigurationMessage |
-		ReplyGetHelpInformationMessage | ReplyGetLanguageBarMessage | ReplyGetLogMessage |
-		ReplyGetSIStackMessage | ReplyGetSyntaxInformationMessage | ReplyGetThreadsMessage |
-		ReplySaveChangesMessage | ReplyTreeListMessage | SetHighlightLineMessage |
-		StringDialogMessage | TaskDialogMessage |
-		SetPromptTypeMessage | ShowHTMLMessage | StatusOutputMessage |
-		SysErrorMessage | UnknownCommandMessage | UpdateDisplayNameMessage |
-		ValueTipMessage | WindowTypeChangedMessage;
+	FormatCodeMessage | GetHelpInformationMessage | GotoWindowMessage | HadErrorMessage |
+	IdentifyMessage | InterpreterStatusMessage | InternalErrorMessage |
+	NotificationMessage | OpenWindowMessage |
+	OptionsDialogMessage | ReplyClearTraceStopMonitorMessage | ReplyFormatCodeMessage |
+	ReplyGetAutocompleteMessage | ReplyGetConfigurationMessage |
+	ReplyGetHelpInformationMessage | ReplyGetLanguageBarMessage | ReplyGetLogMessage |
+	ReplyGetSIStackMessage | ReplyGetSyntaxInformationMessage | ReplyGetThreadsMessage |
+	ReplySaveChangesMessage | ReplyTreeListMessage | SetHighlightLineMessage |
+	StringDialogMessage | TaskDialogMessage |
+	SetPromptTypeMessage | ShowHTMLMessage | StatusOutputMessage |
+	SysErrorMessage | UnknownCommandMessage | UpdateDisplayNameMessage |
+	ValueTipMessage | WindowTypeChangedMessage;
 }

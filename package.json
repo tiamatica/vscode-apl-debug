@@ -71,12 +71,24 @@
     "onDebugDynamicConfigurations:apl",
     "onCommand:extension.apl-debug.getProgramName",
     "onCommand:extension.apl-debug.runEditorContents",
-    "onCommand:extension.apl-debug.debugEditorContents"
+    "onCommand:extension.apl-debug.debugEditorContents",
+    "onLanguage:apl"
   ],
   "workspaceTrust": {
     "request": "never"
   },
   "contributes": {
+    "languages": [
+      {
+        "id": "apl",
+        "aliases": [
+          "Apl"
+        ],
+        "extensions": [
+          "apl"
+        ]
+      }
+    ],
     "keybindings": [
       {
         "command": "extension.apl-debug.traceBackward",
@@ -106,6 +118,10 @@
       {
         "command": "extension.apl-debug.help",
         "key": "F1"
+      },
+      {
+        "command": "editor.action.formatDocument",
+        "key": "Numpad_Divide"
       }
     ],
     "menus": {

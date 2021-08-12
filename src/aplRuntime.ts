@@ -7,6 +7,9 @@ import * as cp from 'child_process';
 import * as Path from 'path';
 import * as Net from 'net';
 import { Subject } from 'await-notify';
+import { open } from 'fs';
+import { resolve } from 'path';
+import { rejects } from 'assert';
 
 export interface FileAccessor {
 	checkExists(filePath: string, timeout: number): Promise<boolean>;
@@ -38,6 +41,11 @@ interface IStack {
 	frames: IStackFrame[];
 }
 
+interface SendFormatRequest {
+	win: number;
+	text: string[];
+}
+
 /**
  * APL runtime with minimal debugger functionality.
  */
@@ -54,6 +62,12 @@ export class AplRuntime extends EventEmitter {
 	public get status(): InterpreterStatusMessage | undefined {
 		return this._status;
 	}
+
+	// current code as given by ReplyFormatCodeMessage
+	// private _fCode? :ReplyFormatCodeMessage;
+	// public get fcode(): ReplyFormatCodeMessage | undefined  {
+	// 	return this._fCode;
+	// }
 
 	// maps from sourceFile to array of APL breakpoints
 	private _breakPoints = new Map<string, IAplBreakpoint[]>();
@@ -86,6 +100,7 @@ export class AplRuntime extends EventEmitter {
 	private blk = 0; // blk:blocked?
 	private last = 0; // last:when last rundown finished
 	private tid = 0; // tid:timeout id
+	// private _text: string[] = [];
 	private _winId = 0; // current window id
 	private _startTime = 0; // start time of debug session
 	private _sessionReady = new Subject();
@@ -598,9 +613,9 @@ export class AplRuntime extends EventEmitter {
 	private interpreterStatus(x: InterpreterStatusMessage) {
 		this.sendEvent('dyalogStatus', x);
 	}
+	
 	private replyFormatCode(x: ReplyFormatCodeMessage) {
-		// const w = D.wins[x.win];
-		// w.ReplyFormatCode(x.text);
+		 this.sendEvent('formatAplCode', x);
 		// ide.hadErr > 0 && (ide.hadErr -= 1);
 		// ide.focusWin(w);
 	}
@@ -665,6 +680,24 @@ export class AplRuntime extends EventEmitter {
 		});
 		return this._siStackPromise;
 	}
+
+	/**
+	 * Request code to be formatted
+	 */
+	 public formatCode(args) {
+		this.send('FormatCode', {win: args.uri, text: args.text});
+	}
+
+//    public getFormattedCode(win: number, text: string[]): PromiseLike<ReplyFormatCodeMessage> {
+// 	if (this._formatPromise) {
+// 		return this._formatPromise;
+// 	}
+// 	this._formatPromise = new Promise((resolve, reject) => {
+// 		this._fCode = {resolve, reject};
+// 		this.send('FormatCode', {win, text});
+// 	});
+// 	return this._formatPromise;
+// }
 
 	/**
 	 * Trace backward

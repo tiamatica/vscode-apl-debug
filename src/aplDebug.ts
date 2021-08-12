@@ -147,8 +147,13 @@ export class AplDebugSession extends LoggingDebugSession {
 				text: `&: ${x.NumThreads} | ⎕DQ: ${x.DQ} | ⎕SI: ${x.SI} | ⎕IO: ${x.IO} | ⎕ML: ${x.ML}`
 			}));
 		});
-	};
-
+		this._runtime.on('formatAplCode', (x: ReplyFormatCodeMessage) => {
+			this.sendEvent(new Event('getNewCode', {
+				win: x.win, text: x.text
+		}));
+	});		
+};
+		
 	/**
 	 * The 'initialize' request is the first request called by the frontend
 	 * to interrogate the features the debug adapter provides.
@@ -507,7 +512,13 @@ export class AplDebugSession extends LoggingDebugSession {
 			case 'help':
 				this._runtime.getHelpInformation(args);
 				this.sendResponse(response); break;
-				
+			
+			case 'format':
+				this._runtime.formatCode(args);
+				this.sendResponse(response); 
+				// this.sendEvent(new Event('formatAplCode', {uri: args.uri, lines: args.text}));
+				break;
+
 			default:
 				super.customRequest(command, response, args); break;
 		}
