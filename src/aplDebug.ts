@@ -15,6 +15,7 @@ import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
 import { AplRuntime, IAplBreakpoint, FileAccessor } from './aplRuntime';
 import { Subject } from 'await-notify';
+import { cursorTo } from 'readline';
 
 // function timeout(ms: number) {
 // 	return new Promise(resolve => setTimeout(resolve, ms));
@@ -86,6 +87,17 @@ export class AplDebugSession extends LoggingDebugSession {
 				}
 			);
 		});
+		this._runtime.on('optionsDialog', (opt) => {
+			vscode.window.showInformationMessage(opt.text, ...opt.options).then(
+				(selected) => {
+					const index = opt.options.indexOf(selected);
+					this._runtime.replyOptionsDialog(index, opt.token);
+				},
+				(error) => {
+					this._runtime.replyOptionsDialog(-1, opt.token);
+				}
+			);
+		});
 		this._runtime.on('closeWindow', (opt: OpenWindowMessage) => {
 			this.sendEvent(new ContinuedEvent(AplDebugSession.threadID));
 		});
@@ -107,9 +119,9 @@ export class AplDebugSession extends LoggingDebugSession {
 			panel.webview.html = opt.html;
 		});
 		this._runtime.on('openHelp', (opt: ReplyGetHelpInformationMessage) => {
-				let html = vscode.Uri.parse(opt.url);
-				vscode.commands.executeCommand('vscode.open', html); 
-		});					
+			let html = vscode.Uri.parse(opt.url);
+			vscode.commands.executeCommand('vscode.open', html);
+		});
 		this._runtime.on('stopOnEntry', () => {
 			this.sendEvent(new StoppedEvent('entry', AplDebugSession.threadID));
 		});
@@ -147,13 +159,13 @@ export class AplDebugSession extends LoggingDebugSession {
 				text: `&: ${x.NumThreads} | ⎕DQ: ${x.DQ} | ⎕SI: ${x.SI} | ⎕IO: ${x.IO} | ⎕ML: ${x.ML}`
 			}));
 		});
-		this._runtime.on('formatAplCode', (x: ReplyFormatCodeMessage) => {
-			this.sendEvent(new Event('getNewCode', {
-				win: x.win, text: x.text
-		}));
-	});		
-};
-		
+		this._runtime.on('forwardCode', (x: ReplyFormatCodeMessage, curentUri) => {
+			this.sendEvent(new Event('formatAplCode', {
+				win: curentUri, text: x.text
+			}));
+		});
+	};
+
 	/**
 	 * The 'initialize' request is the first request called by the frontend
 	 * to interrogate the features the debug adapter provides.
@@ -512,11 +524,10 @@ export class AplDebugSession extends LoggingDebugSession {
 			case 'help':
 				this._runtime.getHelpInformation(args);
 				this.sendResponse(response); break;
-			
+
 			case 'format':
 				this._runtime.formatCode(args);
-				this.sendResponse(response); 
-				// this.sendEvent(new Event('formatAplCode', {uri: args.uri, lines: args.text}));
+				this.sendResponse(response);
 				break;
 
 			default:

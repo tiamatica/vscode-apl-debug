@@ -7,8 +7,10 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken,
-	 TextDocument, FormattingOptions, TextEdit, Range } from 'vscode';
+import {
+	WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken,
+	TextDocument, FormattingOptions, TextEdit, Range
+} from 'vscode';
 import { AplDebugSession } from './aplDebug';
 import { FileAccessor } from './aplRuntime';
 import { callbackify, promisify } from 'util';
@@ -31,10 +33,10 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 	aplStatusBarItem.show();
 	// aplStatusBarItem.command = myCommandId;
 
-	 context.subscriptions.push(
-	 	vscode.languages.registerDocumentRangeFormattingEditProvider('apl', {
+	context.subscriptions.push(
+		vscode.languages.registerDocumentRangeFormattingEditProvider('apl', {
 			provideDocumentRangeFormattingEdits(document: TextDocument, range: Range, options: FormattingOptions, token: CancellationToken): ProviderResult<TextEdit[]> {
-	 			// const firstLine = document.lineAt(0);
+				// const firstLine = document.lineAt(0);
 				const ds = vscode.debug.activeDebugSession;
 				if (!ds) {
 					return;
@@ -47,15 +49,15 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 				});
 				ds.customRequest('format', {
 					uri: document.fileName,
-					text: document.getText(range).split('\n')
+					text: document.getText(range).split(document.eol === vscode.EndOfLine.LF ? '\n' : '\r\n')
 				});
 				return formatResult;
 
 
-	 			// return [vscode.TextEdit.insert(firstLine.range.start, '42\n')];
-	 		}
-	 	})
-	 );
+				// return [vscode.TextEdit.insert(firstLine.range.start, '42\n')];
+			}
+		})
+	);
 
 	context.subscriptions.push(
 		aplStatusBarItem,
@@ -73,6 +75,16 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 				},
 					{ noDebug: true }
 				);
+			}
+		}),
+		vscode.commands.registerCommand('extension.apl-debug.edit', (resource: vscode.Uri) => {
+			let targetResource = resource;
+			let targetPath = targetResource.fsPath;
+			if (fs.existsSync(targetPath)) {
+				const ds = vscode.debug.activeDebugSession;
+				if (ds) {
+					ds.customRequest('edit', { resource });
+				}
 			}
 		}),
 		vscode.commands.registerCommand('extension.apl-debug.debugEditorContents', (resource: vscode.Uri) => {
@@ -127,12 +139,6 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 			if (ds) {
 				ds.customRequest('cutback');
 			}
-		// }),
-		// vscode.commands.registerCommand('extension.apl-debug.formatCode', (variable) => {
-		// 	const ds = vscode.debug.activeDebugSession;
-		// 	if (ds) {
-		// 		ds.customRequest('format');
-		// 	}
 		})
 	);
 
@@ -183,11 +189,11 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 	context.subscriptions.push(vscode.debug.onDidReceiveDebugSessionCustomEvent((customEvent) => {
 		if (customEvent.event === 'statusInformation') {
 			aplStatusBarItem.text = customEvent.body.text;
-		} else if (customEvent.event === 'getNewCode') {
-			const documentUri = customEvent.body.uri;
+		} else if (customEvent.event === 'formatAplCode') {
+			const documentUri = customEvent.body.win;
 			const formatRequest = formatDocs[documentUri] as FormatCodeRequest;
 			if (formatRequest) {
-				const edit = TextEdit.replace(formatRequest.range, customEvent.body.lines.join('\n'));
+				const edit = TextEdit.replace(formatRequest.range, customEvent.body.text.join('\n'));
 				formatRequest.executor.resolve([edit]);
 			}
 		}
