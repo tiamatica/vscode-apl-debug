@@ -11,10 +11,6 @@ interface DisconnectMessage {
 interface EchoInputMessage {
 	input: string;
 }
-interface FormatCodeMessage {
-	win: number;
-	text: string[];
-}
 interface GetHelpInformationMessage {
 	line: string;
 	pos: number;
@@ -207,7 +203,7 @@ interface RideMessage {
 	length: 2;
 	0: string;
 	1: AppendSessionOutputMessage | CloseWindowMessage | DisconnectMessage | EchoInputMessage |
-	FormatCodeMessage | GetHelpInformationMessage | GotoWindowMessage | HadErrorMessage |
+	GetHelpInformationMessage | GotoWindowMessage | HadErrorMessage |
 	IdentifyMessage | InterpreterStatusMessage | InternalErrorMessage |
 	NotificationMessage | OpenWindowMessage |
 	OptionsDialogMessage | ReplyClearTraceStopMonitorMessage | ReplyFormatCodeMessage |
