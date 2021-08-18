@@ -64,12 +64,6 @@ export class AplRuntime extends EventEmitter {
 		return this._status;
 	}
 
-	// current code as given by ReplyFormatCodeMessage
-	// private _fCode? :ReplyFormatCodeMessage;
-	// public get fcode(): ReplyFormatCodeMessage | undefined  {
-	// 	return this._fCode; 
-	// }
-
 	// maps from sourceFile to array of APL breakpoints
 	private _breakPoints = new Map<string, IAplBreakpoint[]>();
 

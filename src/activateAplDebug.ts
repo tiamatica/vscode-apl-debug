@@ -77,16 +77,6 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 				);
 			}
 		}),
-		vscode.commands.registerCommand('extension.apl-debug.edit', (resource: vscode.Uri) => {
-			let targetResource = resource;
-			let targetPath = targetResource.fsPath;
-			if (fs.existsSync(targetPath)) {
-				const ds = vscode.debug.activeDebugSession;
-				if (ds) {
-					ds.customRequest('edit', { resource });
-				}
-			}
-		}),
 		vscode.commands.registerCommand('extension.apl-debug.debugEditorContents', (resource: vscode.Uri) => {
 			let targetResource = resource;
 			if (!targetResource && vscode.window.activeTextEditor) {
