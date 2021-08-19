@@ -144,7 +144,7 @@ interface ReplyTreeListMessage {
 	nodeId: number;
 	nodeIds: number[];
 	names: string[],
-    classes: number[];
+	classes: number[];
 	err: string;
 }
 interface SetHighlightLineMessage {
@@ -203,16 +203,16 @@ interface RideMessage {
 	length: 2;
 	0: string;
 	1: AppendSessionOutputMessage | CloseWindowMessage | DisconnectMessage | EchoInputMessage |
-		GetHelpInformationMessage | GotoWindowMessage | HadErrorMessage |
-		IdentifyMessage | InterpreterStatusMessage | InternalErrorMessage |
-		NotificationMessage | OpenWindowMessage |
-		OptionsDialogMessage | ReplyClearTraceStopMonitorMessage | ReplyFormatCodeMessage |
-		ReplyGetAutocompleteMessage | ReplyGetConfigurationMessage |
-		ReplyGetHelpInformationMessage | ReplyGetLanguageBarMessage | ReplyGetLogMessage |
-		ReplyGetSIStackMessage | ReplyGetSyntaxInformationMessage | ReplyGetThreadsMessage |
-		ReplySaveChangesMessage | ReplyTreeListMessage | SetHighlightLineMessage |
-		StringDialogMessage | TaskDialogMessage |
-		SetPromptTypeMessage | ShowHTMLMessage | StatusOutputMessage |
-		SysErrorMessage | UnknownCommandMessage | UpdateDisplayNameMessage |
-		ValueTipMessage | WindowTypeChangedMessage;
+	GetHelpInformationMessage | GotoWindowMessage | HadErrorMessage |
+	IdentifyMessage | InterpreterStatusMessage | InternalErrorMessage |
+	NotificationMessage | OpenWindowMessage |
+	OptionsDialogMessage | ReplyClearTraceStopMonitorMessage | ReplyFormatCodeMessage |
+	ReplyGetAutocompleteMessage | ReplyGetConfigurationMessage |
+	ReplyGetHelpInformationMessage | ReplyGetLanguageBarMessage | ReplyGetLogMessage |
+	ReplyGetSIStackMessage | ReplyGetSyntaxInformationMessage | ReplyGetThreadsMessage |
+	ReplySaveChangesMessage | ReplyTreeListMessage | SetHighlightLineMessage |
+	StringDialogMessage | TaskDialogMessage |
+	SetPromptTypeMessage | ShowHTMLMessage | StatusOutputMessage |
+	SysErrorMessage | UnknownCommandMessage | UpdateDisplayNameMessage |
+	ValueTipMessage | WindowTypeChangedMessage;
 }

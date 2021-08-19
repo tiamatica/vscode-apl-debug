@@ -7,12 +7,23 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
+import {
+	WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken,
+	TextDocument, FormattingOptions, TextEdit, Range
+} from 'vscode';
 import { AplDebugSession } from './aplDebug';
 import { FileAccessor } from './aplRuntime';
-import { callbackify, promisify } from 'util';
 
 let aplStatusBarItem: vscode.StatusBarItem;
+const formatDocs = {};
+
+interface FormatCodeRequest {
+	executor: {
+		resolve: (value: TextEdit[]) => void,
+		reject: (reason?: any) => void
+	},
+	range: Range
+}
 
 export function activateAplDebug(context: vscode.ExtensionContext, factory?: vscode.DebugAdapterDescriptorFactory) {
 
@@ -20,7 +31,33 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 	aplStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	aplStatusBarItem.show();
 	// aplStatusBarItem.command = myCommandId;
-	
+
+	context.subscriptions.push(
+		vscode.languages.registerDocumentRangeFormattingEditProvider('apl', {
+			provideDocumentRangeFormattingEdits(document: TextDocument, range: Range, options: FormattingOptions, token: CancellationToken): ProviderResult<TextEdit[]> {
+				// const firstLine = document.lineAt(0);
+				const ds = vscode.debug.activeDebugSession;
+				if (!ds) {
+					return;
+				}
+				const formatResult = new Promise<vscode.TextEdit[]>((resolve, reject) => {
+					formatDocs[document.fileName] = {
+						executor: { resolve, reject },
+						range
+					};
+				});
+				ds.customRequest('format', {
+					uri: document.fileName,
+					text: document.getText(range).split(document.eol === vscode.EndOfLine.LF ? '\n' : '\r\n')
+				});
+				return formatResult;
+
+
+				// return [vscode.TextEdit.insert(firstLine.range.start, '42\n')];
+			}
+		})
+	);
+
 	context.subscriptions.push(
 		aplStatusBarItem,
 		vscode.commands.registerCommand('extension.apl-debug.runEditorContents', (resource: vscode.Uri) => {
@@ -30,11 +67,11 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 			}
 			if (targetResource) {
 				vscode.debug.startDebugging(undefined, {
-						type: 'apl',
-						name: 'Run File',
-						request: 'launch',
-						program: targetResource.fsPath
-					},
+					type: 'apl',
+					name: 'Run File',
+					request: 'launch',
+					program: targetResource.fsPath
+				},
 					{ noDebug: true }
 				);
 			}
@@ -141,9 +178,15 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 	context.subscriptions.push(vscode.debug.onDidReceiveDebugSessionCustomEvent((customEvent) => {
 		if (customEvent.event === 'statusInformation') {
 			aplStatusBarItem.text = customEvent.body.text;
+		} else if (customEvent.event === 'formatAplCode') {
+			const documentUri = customEvent.body.win;
+			const formatRequest = formatDocs[documentUri] as FormatCodeRequest;
+			if (formatRequest) {
+				const edit = TextEdit.replace(formatRequest.range, customEvent.body.text.join('\n'));
+				formatRequest.executor.resolve([edit]);
+			}
 		}
 	}));
-
 	// override VS Code's default implementation of the debug hover
 	context.subscriptions.push(vscode.languages.registerEvaluatableExpressionProvider('apl', {
 		provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
@@ -155,7 +198,7 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 	// override VS Code's default implementation of the "inline values" feature"
 	context.subscriptions.push(vscode.languages.registerInlineValuesProvider('apl', {
 
-		provideInlineValues(document: vscode.TextDocument, viewport: vscode.Range, context: vscode.InlineValueContext) : vscode.ProviderResult<vscode.InlineValue[]> {
+		provideInlineValues(document: vscode.TextDocument, viewport: vscode.Range, context: vscode.InlineValueContext): vscode.ProviderResult<vscode.InlineValue[]> {
 
 			const allValues: vscode.InlineValue[] = [];
 
@@ -219,12 +262,12 @@ class AplConfigurationProvider implements vscode.DebugConfigurationProvider {
 export const workspaceFileAccessor: FileAccessor = {
 	async checkExists(filePath: string, timeout: number) {
 		return new Promise(function (resolve, reject) {
-	
+
 			var timer = setTimeout(function () {
 				watcher.close();
 				reject(new Error('File did not exists and was not created during the timeout.'));
 			}, timeout);
-	
+
 			fs.access(filePath, fs.constants.R_OK, function (err) {
 				if (!err) {
 					clearTimeout(timer);
@@ -232,7 +275,7 @@ export const workspaceFileAccessor: FileAccessor = {
 					resolve(true);
 				}
 			});
-	
+
 			var dir = path.dirname(filePath);
 			var basename = path.basename(filePath);
 			var watcher = fs.watch(dir, function (eventType, filename) {
@@ -246,7 +289,7 @@ export const workspaceFileAccessor: FileAccessor = {
 	},
 	async deleteFile(filePath: string) {
 		return new Promise((resolve, reject) => {
-			fs.rm(filePath, {force: true }, (err) => {
+			fs.rm(filePath, { force: true }, (err) => {
 				if (err) {
 					reject(err);
 				}
@@ -260,7 +303,7 @@ export const workspaceFileAccessor: FileAccessor = {
 			const bytes = await vscode.workspace.fs.readFile(uri);
 			const contents = Buffer.from(bytes).toString('utf8');
 			return contents;
-		} catch(e) {
+		} catch (e) {
 			try {
 				const uri = vscode.Uri.parse(path);
 				const bytes = await vscode.workspace.fs.readFile(uri);

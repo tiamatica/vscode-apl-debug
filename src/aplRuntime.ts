@@ -48,7 +48,7 @@ export class AplRuntime extends EventEmitter {
 	public get sourceFile() {
 		return this._sourceFile;
 	}
-	
+
 	// the current interpreterStatus
 	private _status?: InterpreterStatusMessage;
 	public get status(): InterpreterStatusMessage | undefined {
@@ -57,7 +57,7 @@ export class AplRuntime extends EventEmitter {
 
 	// maps from sourceFile to array of APL breakpoints
 	private _breakPoints = new Map<string, IAplBreakpoint[]>();
-	
+
 	// link info returned from interpreter
 	private _linkInfo: string[][] = [];
 
@@ -86,15 +86,18 @@ export class AplRuntime extends EventEmitter {
 	private blk = 0; // blk:blocked?
 	private last = 0; // last:when last rundown finished
 	private tid = 0; // tid:timeout id
+	
 	private _winId = 0; // current window id
 	private _startTime = 0; // start time of debug session
 	private _sessionReady = new Subject();
+	private _formatRequest = new Subject();
 	private _windows: OpenWindowMessage[] = [];
+	private _currentUri = '';
 
 	private maxl = 1000;
 
 	private normPath = (path: string) => path.replace(/^\w:/, m => m.toUpperCase());
-		
+
 
 	constructor(private _fileAccessor: FileAccessor) {
 		super();
@@ -104,7 +107,7 @@ export class AplRuntime extends EventEmitter {
 	/**
 	 * Start executing the given program.
 	 */
-	public async start(exe: string, dcfg:string | undefined, program: string, folder: string, stopOnEntry: boolean, noDebug: boolean): Promise<void> {
+	public async start(exe: string, dcfg: string | undefined, program: string, folder: string, stopOnEntry: boolean, noDebug: boolean): Promise<void> {
 
 		if (exe) {
 			this._exe = exe;
@@ -136,24 +139,24 @@ export class AplRuntime extends EventEmitter {
 		await this._fileAccessor.deleteFile(this._link);
 		this.exec(0, `(⊂⎕JSON{(⍕2⊃⍵)@2⊢⍵}¨5177⌶⍬)⎕NPUT '${this._link}' 1`);
 		return this._fileAccessor.checkExists(this._link, 5000)
-		.then(() => this._fileAccessor.readFile(this._link))
-		.then((data) => {
-			this._linkInfo = JSON.parse(data);
-			const map = {};
-			this._linkInfo.forEach(x => {
-				const aplName = `${x[1]}.${x[0]}`;
-				const filePath = Path.resolve(x[3]);
-				map[aplName] = filePath;
-				map[filePath] = aplName;
-			});
-			this._linkMap = map;
-		}).catch(this.err);
+			.then(() => this._fileAccessor.readFile(this._link))
+			.then((data) => {
+				this._linkInfo = JSON.parse(data);
+				const map = {};
+				this._linkInfo.forEach(x => {
+					const aplName = `${x[1]}.${x[0]}`;
+					const filePath = Path.resolve(x[3]);
+					map[aplName] = filePath;
+					map[filePath] = aplName;
+				});
+				this._linkMap = map;
+			}).catch(this.err);
 	}
-	
+
 	private initialiseBreakpoints() {
-		this._breakPoints.forEach((bps, path) =>{
+		this._breakPoints.forEach((bps, path) => {
 			const aplName = this._linkMap[path];
-			if (bps.length && aplName){
+			if (bps.length && aplName) {
 				const lines = bps.map(bp => bp.line).join(' ');
 				this.exec(0, `{}${lines} ⎕STOP '${aplName}'`);
 			}
@@ -373,7 +376,7 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private trunc = (x: string) => (x.length > this.maxl ? `${x.slice(0, this.maxl - 3)}...` : x);
-		
+
 	private toBuf(x: string) {
 		const b = Buffer.from(`xxxxRIDE${x}`);
 		b.writeInt32BE(b.length, 0);
@@ -444,26 +447,17 @@ export class AplRuntime extends EventEmitter {
 		this.err(`An error (${x.error}) occurred processing ${x.message}`);
 	}
 	private notificationMessage(x: NotificationMessage) {
-		// this.alert(x.message, 'Notification'); 
 	}
 
 	private updateDisplayName(x: UpdateDisplayNameMessage) {
-		// this.wsid = x.displayName;
-		// this.updTitle();
-		// this.wse && this.wse.refresh();
 	}
 
 	private echoInput(x: EchoInputMessage) {
-		// this.add(x.input);
 	}
 
 	private setPromptType(x: SetPromptTypeMessage) {
 		const t = x.type;
 		this.promptType = t;
-		// if (t && ide.pending.length) D.send('Execute', { trace: 0, text: `${ide.pending.shift()}\n` });
-		// else eachWin((w) => { w.prompt(t); });
-		// (t === 2 || t === 4) && ide.wins[0].focus(); // ⎕ / ⍞ input
-		// t === 1 && ide.getStats();
 		if (t === 1) {
 			this._sessionReady.notifyAll();
 		}
@@ -476,12 +470,15 @@ export class AplRuntime extends EventEmitter {
 
 	private gotoWindow(x: GotoWindowMessage) {
 		this.sendEvent('openWindow', { filename: this._windows[x.win].filename });
+		this._formatRequest.notifyAll();
 	}
 
 	private windowTypeChanged(x: WindowTypeChangedMessage) {
-		// return ide.wins[x.win].setTC(x.tracer); 
+		if (x.tracer === 0) {
+			this._formatRequest.notifyAll();
+		}
 	}
-	
+
 	private replyGetAutocomplete(x: ReplyGetAutocompleteMessage) {
 		if (this._autocompletion) {
 			this._autocompletion.resolve(x.options);
@@ -493,22 +490,8 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private replyGetLanguageBar(x: ReplyGetLanguageBarMessage) {
-		// const { entries } = x;
-		// D.lb.order = entries.map((k) => k.avchar || ' ').join('');
-		// entries.forEach((k) => {
-		// if (k.avchar) {
-		// 	D.lb.tips[k.avchar] = [
-		// 	`${k.name.slice(5)} (${k.avchar})`,
-		// 	k.helptext.join('\n'),
-		// 	];
-		// 	D.sqglDesc[k.avchar] = `${k.name.slice(5)} (${k.avchar})`;
-		// }
-		// });
-		// ide.lbarRecreate();
 	}
 	private replyGetSyntaxInformation(x: ReplyGetSyntaxInformationMessage) {
-		// D.ParseSyntaxInformation(x);
-		// D.ipc && D.ipc.server.broadcast('syntax', D.syntax);
 	}
 	private valueTip(x: ValueTipMessage) {
 		this.log('getValueTip');
@@ -521,17 +504,15 @@ export class AplRuntime extends EventEmitter {
 		if (this._hadError === 1001) {
 			this.sendEvent('stopOnBreakpoint');
 			this._hadError = 0;
-		// } else if (x.line === 0) {
-		// 	this.sendEvent('stopOnEntry');
 		} else {
 			this.sendEvent('stopOnStep');
 		}
 	}
 	private updateWindow(x: OpenWindowMessage) {
 		this._windows[x.token] = x;
+		this._formatRequest.notifyAll();
 	}
 	private replySaveChanges(x: ReplySaveChangesMessage) {
-		// const w = ide.wins[x.win]; w && w.saved(x.err); 
 	}
 	private closeWindow(x: CloseWindowMessage) {
 		const win = this._windows[x.win];
@@ -544,29 +525,21 @@ export class AplRuntime extends EventEmitter {
 		this._winId = x.token;
 		const filename = Path.resolve(x.filename);
 		this.sendEvent('openWindow', { filename });
+		this._formatRequest.notifyAll();
 		this.verifyBreakpoints(filename, x.stop);
 	}
 	private showHTML(x: ShowHTMLMessage) {
 		this.sendEvent('openWebview', x);
 	}
 	private optionsDialog(x: OptionsDialogMessage) {
-		// D.util.optionsDialog(x, (r) => {
-		// D.send('ReplyOptionsDialog', { index: r, token: x.token });
-		// });
+		this.sendEvent('optionsDialog', x);
 	}
 	private stringDialog(x: StringDialogMessage) {
-		// D.util.stringDialog(x, (r) => {
-		// D.send('ReplyStringDialog', { value: r, token: x.token });
-		// });
 	}
 	private taskDialog(x: TaskDialogMessage) {
 		this.sendEvent('taskDialog', x);
 	}
 	private replyClearTraceStopMonitor(x: ReplyClearTraceStopMonitorMessage) {
-		// $.alert(`The following items were cleared:
-		// ${x.traces} traces
-		// ${x.stops} stops
-		// ${x.monitors} monitors`, 'Clear all trace/stop/monitor');
 	}
 	private replyGetSIStack(x: ReplyGetSIStackMessage) {
 		this.log('getSIStack');
@@ -590,24 +563,14 @@ export class AplRuntime extends EventEmitter {
 		}
 	}
 	private replyGetThreads(x: ReplyGetThreadsMessage) {
-		// const l = x.threads.length;
-		// I.sb_threads.innerText = `&: ${l}`;
-		// I.sb_threads.classList.toggle('active', l > 1);
-		// ide.dbg && ide.dbg.threads.render(x.threads);
 	}
 	private interpreterStatus(x: InterpreterStatusMessage) {
 		this.sendEvent('dyalogStatus', x);
 	}
 	private replyFormatCode(x: ReplyFormatCodeMessage) {
-		// const w = D.wins[x.win];
-		// w.ReplyFormatCode(x.text);
-		// ide.hadErr > 0 && (ide.hadErr -= 1);
-		// ide.focusWin(w);
+		this.sendEvent('forwardCode', x, this._currentUri);
 	}
 	private replyGetConfiguration(x: ReplyGetConfigurationMessage) {
-		// x.configurations.forEach((c) => {
-		// 	if (c.name === 'AUTO_PAUSE_THREADS') D.prf.pauseOnError(c.value === '1');
-		// });
 	}
 	private replyTreeList(x: ReplyTreeListMessage) {
 		if (this._treelist[x.nodeId]) {
@@ -665,18 +628,31 @@ export class AplRuntime extends EventEmitter {
 		});
 		return this._siStackPromise;
 	}
-
+	/**
+	 * Request code to be formatted
+	 */
+	public async formatCode(args) {
+		const aplName = this._linkMap[this.normPath(Path.resolve(args.uri))];
+		if (this._winId !== 0) {
+			this.send('CloseWindow', { win: this._winId });
+		}
+		this.send('Edit', { win: 0, text: aplName, pos: 0, unsaved: {} });
+		await this._formatRequest.wait();
+		this._currentUri = args.uri;
+		this.send('FormatCode', { win: this._winId, text: args.text });
+		this.send('CloseWindow', { win: this._winId });
+	}
 	/**
 	 * Trace backward
 	 */
-	 public traceBackward() {
+	public traceBackward() {
 		this.send('TraceBackward', { win: this._winId });
 	}
 
 	/**
 	 * Trace forward
 	 */
-	 public traceForward() {
+	public traceForward() {
 		this.send('TraceForward', { win: this._winId });
 	}
 
@@ -702,6 +678,13 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	/**
+	 * Reply to OptionsDialog
+	 */
+	public replyOptionsDialog(index: number, token: number) {
+		this.send('ReplyOptionsDialog', { index, token });
+	}
+
+	/**
 	 * Continue execution to the end/beginning.
 	 */
 	public continue() {
@@ -721,7 +704,7 @@ export class AplRuntime extends EventEmitter {
 	public stepIn(targetId: number | undefined) {
 		this.send('StepInto', { win: this._winId });
 	}
-	
+
 	/**
 	 * Request resume execution of the current function, but stop on the next line of the calling function.
 	 */
@@ -741,11 +724,11 @@ export class AplRuntime extends EventEmitter {
 	 * Get Value Tip
 	 */
 	public getValueTip(
-		line: string, 
-		pos: number, 
-		token: number, 
-		win: number = 0, 
-		maxWidth :number = 200, 
+		line: string,
+		pos: number,
+		token: number,
+		win: number = 0,
+		maxWidth: number = 200,
 		maxHeight: number = 100): PromiseLike<ValueTipMessage> {
 		setTimeout(() => { this._valueTip[token]?.resolve(); }, 100);
 		return new Promise((resolve, reject) => {
@@ -757,7 +740,7 @@ export class AplRuntime extends EventEmitter {
 				pos,
 				maxWidth,
 				maxHeight,
-			  });
+			});
 		});
 	}
 
@@ -859,7 +842,7 @@ export class AplRuntime extends EventEmitter {
 			bps.forEach(bp => {
 				if (!bp.verified && lines.includes(bp.line)) {
 					bp.verified = true;
-					this.sendEvent('breakpointValidated', bp);				
+					this.sendEvent('breakpointValidated', bp);
 				}
 			});
 		}
