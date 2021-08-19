@@ -13,7 +13,6 @@ import {
 } from 'vscode';
 import { AplDebugSession } from './aplDebug';
 import { FileAccessor } from './aplRuntime';
-import { callbackify, promisify } from 'util';
 
 let aplStatusBarItem: vscode.StatusBarItem;
 const formatDocs = {};

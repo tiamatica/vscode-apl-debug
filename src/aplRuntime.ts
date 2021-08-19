@@ -7,10 +7,6 @@ import * as cp from 'child_process';
 import * as Path from 'path';
 import * as Net from 'net';
 import { Subject } from 'await-notify';
-import { open } from 'fs';
-import { resolve } from 'path';
-import { rejects } from 'assert';
-import { DocumentHighlight } from 'vscode';
 
 export interface FileAccessor {
 	checkExists(filePath: string, timeout: number): Promise<boolean>;
@@ -40,11 +36,6 @@ interface IStackFrame {
 interface IStack {
 	count: number;
 	frames: IStackFrame[];
-}
-
-interface SendFormatRequest {
-	win: number;
-	text: string[];
 }
 
 /**
@@ -95,7 +86,7 @@ export class AplRuntime extends EventEmitter {
 	private blk = 0; // blk:blocked?
 	private last = 0; // last:when last rundown finished
 	private tid = 0; // tid:timeout id
-	// private _text: string[] = [];
+	
 	private _winId = 0; // current window id
 	private _startTime = 0; // start time of debug session
 	private _sessionReady = new Subject();
@@ -456,26 +447,17 @@ export class AplRuntime extends EventEmitter {
 		this.err(`An error (${x.error}) occurred processing ${x.message}`);
 	}
 	private notificationMessage(x: NotificationMessage) {
-		// this.alert(x.message, 'Notification'); 
 	}
 
 	private updateDisplayName(x: UpdateDisplayNameMessage) {
-		// this.wsid = x.displayName;
-		// this.updTitle();
-		// this.wse && this.wse.refresh();
 	}
 
 	private echoInput(x: EchoInputMessage) {
-		// this.add(x.input);
 	}
 
 	private setPromptType(x: SetPromptTypeMessage) {
 		const t = x.type;
 		this.promptType = t;
-		// if (t && ide.pending.length) D.send('Execute', { trace: 0, text: `${ide.pending.shift()}\n` });
-		// else eachWin((w) => { w.prompt(t); });
-		// (t === 2 || t === 4) && ide.wins[0].focus(); // ⎕ / ⍞ input
-		// t === 1 && ide.getStats();
 		if (t === 1) {
 			this._sessionReady.notifyAll();
 		}
@@ -492,7 +474,6 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private windowTypeChanged(x: WindowTypeChangedMessage) {
-		// return ide.wins[x.win].setTC(x.tracer); 
 		if (x.tracer === 0) {
 			this._formatRequest.notifyAll();
 		}
@@ -509,22 +490,8 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private replyGetLanguageBar(x: ReplyGetLanguageBarMessage) {
-		// const { entries } = x;
-		// D.lb.order = entries.map((k) => k.avchar || ' ').join('');
-		// entries.forEach((k) => {
-		// if (k.avchar) {
-		// 	D.lb.tips[k.avchar] = [
-		// 	`${k.name.slice(5)} (${k.avchar})`,
-		// 	k.helptext.join('\n'),
-		// 	];
-		// 	D.sqglDesc[k.avchar] = `${k.name.slice(5)} (${k.avchar})`;
-		// }
-		// });
-		// ide.lbarRecreate();
 	}
 	private replyGetSyntaxInformation(x: ReplyGetSyntaxInformationMessage) {
-		// D.ParseSyntaxInformation(x);
-		// D.ipc && D.ipc.server.broadcast('syntax', D.syntax);
 	}
 	private valueTip(x: ValueTipMessage) {
 		this.log('getValueTip');
@@ -537,8 +504,6 @@ export class AplRuntime extends EventEmitter {
 		if (this._hadError === 1001) {
 			this.sendEvent('stopOnBreakpoint');
 			this._hadError = 0;
-			// } else if (x.line === 0) {
-			// 	this.sendEvent('stopOnEntry');
 		} else {
 			this.sendEvent('stopOnStep');
 		}
@@ -548,7 +513,6 @@ export class AplRuntime extends EventEmitter {
 		this._formatRequest.notifyAll();
 	}
 	private replySaveChanges(x: ReplySaveChangesMessage) {
-		// const w = ide.wins[x.win]; w && w.saved(x.err); 
 	}
 	private closeWindow(x: CloseWindowMessage) {
 		const win = this._windows[x.win];
@@ -569,23 +533,13 @@ export class AplRuntime extends EventEmitter {
 	}
 	private optionsDialog(x: OptionsDialogMessage) {
 		this.sendEvent('optionsDialog', x);
-		//	D.util.optionsDialog(x, (r) => {
-		//	D.send('ReplyOptionsDialog', { index: r, token: x.token });
-		//	});
 	}
 	private stringDialog(x: StringDialogMessage) {
-		// D.util.stringDialog(x, (r) => {
-		// D.send('ReplyStringDialog', { value: r, token: x.token });
-		// });
 	}
 	private taskDialog(x: TaskDialogMessage) {
 		this.sendEvent('taskDialog', x);
 	}
 	private replyClearTraceStopMonitor(x: ReplyClearTraceStopMonitorMessage) {
-		// $.alert(`The following items were cleared:
-		// ${x.traces} traces
-		// ${x.stops} stops
-		// ${x.monitors} monitors`, 'Clear all trace/stop/monitor');
 	}
 	private replyGetSIStack(x: ReplyGetSIStackMessage) {
 		this.log('getSIStack');
@@ -609,10 +563,6 @@ export class AplRuntime extends EventEmitter {
 		}
 	}
 	private replyGetThreads(x: ReplyGetThreadsMessage) {
-		// const l = x.threads.length;
-		// I.sb_threads.innerText = `&: ${l}`;
-		// I.sb_threads.classList.toggle('active', l > 1);
-		// ide.dbg && ide.dbg.threads.render(x.threads);
 	}
 	private interpreterStatus(x: InterpreterStatusMessage) {
 		this.sendEvent('dyalogStatus', x);
@@ -620,13 +570,7 @@ export class AplRuntime extends EventEmitter {
 	private replyFormatCode(x: ReplyFormatCodeMessage) {
 		this.sendEvent('forwardCode', x, this._currentUri);
 	}
-	// this.sendEvent('formatAplCode', x);
-	// ide.hadErr > 0 && (ide.hadErr -= 1);
-	// ide.focusWin(w);
 	private replyGetConfiguration(x: ReplyGetConfigurationMessage) {
-		// x.configurations.forEach((c) => {
-		// 	if (c.name === 'AUTO_PAUSE_THREADS') D.prf.pauseOnError(c.value === '1');
-		// });
 	}
 	private replyTreeList(x: ReplyTreeListMessage) {
 		if (this._treelist[x.nodeId]) {

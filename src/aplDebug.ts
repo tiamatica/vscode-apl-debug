@@ -15,7 +15,6 @@ import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
 import { AplRuntime, IAplBreakpoint, FileAccessor } from './aplRuntime';
 import { Subject } from 'await-notify';
-import { cursorTo } from 'readline';
 
 // function timeout(ms: number) {
 // 	return new Promise(resolve => setTimeout(resolve, ms));

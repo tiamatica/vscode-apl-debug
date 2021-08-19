@@ -71,24 +71,12 @@
     "onDebugDynamicConfigurations:apl",
     "onCommand:extension.apl-debug.getProgramName",
     "onCommand:extension.apl-debug.runEditorContents",
-    "onCommand:extension.apl-debug.debugEditorContents",
-    "onLanguage:apl"
+    "onCommand:extension.apl-debug.debugEditorContents"
   ],
   "workspaceTrust": {
     "request": "never"
   },
   "contributes": {
-    "languages": [
-      {
-        "id": "apl",
-        "aliases": [
-          "Apl"
-        ],
-        "extensions": [
-          "apl"
-        ]
-      }
-    ],
     "keybindings": [
       {
         "command": "extension.apl-debug.traceBackward",
