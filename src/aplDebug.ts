@@ -9,10 +9,10 @@ import {
 	// ProgressStartEvent, ProgressUpdateEvent, ProgressEndEvent, 
 	InvalidatedEvent, Event,
 	Thread, StackFrame, Scope, Source, Handles, Breakpoint, ContinuedEvent
-} from 'vscode-debugadapter';
+} from '@vscode/debugadapter';
 import * as vscode from 'vscode';
-import { DebugProtocol } from 'vscode-debugprotocol';
-import { basename } from 'path';
+import { DebugProtocol } from '@vscode/debugprotocol';
+import { basename } from 'path-browserify';
 import { AplRuntime, IAplBreakpoint, FileAccessor } from './aplRuntime';
 import { Subject } from 'await-notify';
 

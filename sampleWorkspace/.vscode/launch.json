@@ -27,8 +27,8 @@
 		{
 			"type": "apl",
 			"request": "launch",
-			"name": "Debug current file 18.1",
-			"exe": "C:\\Program Files\\Dyalog\\Dyalog APL-64 18.1 Unicode\\dyalog.exe",
+			"name": "Debug current file 18.2",
+			"exe": "/Applications/Dyalog-18.2.app/Contents/Resources/Dyalog/mapl",
 			"program": "${file}",
 			"cwd": "${workspaceFolder}",
 			"stopOnEntry": true,
@@ -37,8 +37,8 @@
 		{
 			"type": "apl",
 			"request": "launch",
-			"name": "Debug current workspace 18.1",
-			"exe": "C:\\Program Files\\Dyalog\\Dyalog APL-64 18.1 Unicode\\dyalog.exe",
+			"name": "Debug current workspace 18.2",
+			"exe": "/Applications/Dyalog-18.2.app/Contents/Resources/Dyalog/mapl",
 			"program": "",
 			"cwd": "${workspaceFolder}",
 			"stopOnEntry": true,

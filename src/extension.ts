@@ -122,9 +122,7 @@ class AplDebugAdapterNamedPipeServerDescriptorFactory implements vscode.DebugAda
 		}
 
 		// make VS Code connect to debug server
-		// TODO: enable named pipe support as soon as VS Code 1.49 is out
-		//return new vscode.DebugAdapterNamedPipeServer(this.server.address() as string);
-		return undefined;
+		return new vscode.DebugAdapterNamedPipeServer(this.server.address() as string);
 	}
 
 	dispose() {

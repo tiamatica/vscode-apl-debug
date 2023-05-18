@@ -18,7 +18,8 @@ import { FileAccessor } from './aplRuntime';
  * So we can only use node.js API for accessing files.
  */
 const fsAccessor:  FileAccessor = {
-	async checkExists(filePath: string, timeout: number) {
+	isWindows: process.platform === 'win32',
+	checkExists(filePath: string, timeout: number) {
 		return new Promise(function (resolve, reject) {
 	
 			var timer = setTimeout(function () {
@@ -46,26 +47,14 @@ const fsAccessor:  FileAccessor = {
 		});
 	},
 	async deleteFile(filePath: string) {
-		return new Promise((resolve, reject) => {
-			fs.rm(filePath, {force: true }, (err) => {
-				if (err) {
-					reject(err);
-				}
-				resolve(true);
-			});
-		});
+		return fs.promises.rm(filePath, {force: true });
 	},
-	async readFile(path: string): Promise<string> {
-		return new Promise((resolve, reject) => {
-			fs.readFile(path, (err, data) => {
-				if (err) {
-					reject(err);
-				} else {
-					resolve(data.toString());
-				}
-			});
-		});
+	readFile(path: string): Promise<Uint8Array> {
+		return fs.promises.readFile(path);
 	},
+	writeFile(path: string, contents: Uint8Array): Promise<void> {
+		return fs.promises.writeFile(path, contents);
+	}
 };
 
 /*

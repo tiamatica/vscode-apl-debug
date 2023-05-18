@@ -121,6 +121,9 @@ interface ReplyGetLogMessage {
 interface ReplyGetSIStackMessage {
 	stack: {
 		description: string;
+		filecount: number;
+		fileline: number;
+		filename: string;
 	}[];
 	tid: number;
 }
