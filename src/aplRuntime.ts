@@ -9,9 +9,11 @@ import * as Net from 'net';
 import { Subject } from 'await-notify';
 
 export interface FileAccessor {
+	isWindows: boolean;
 	checkExists(filePath: string, timeout: number): Promise<boolean>;
-	deleteFile(path: string): Promise<boolean>;
-	readFile(path: string): Promise<string>;
+	deleteFile(path: string): Promise<void>;
+	readFile(path: string): Promise<Uint8Array>;
+	writeFile(path: string, contents: Uint8Array): Promise<void>;
 }
 
 export interface IAplBreakpoint {
@@ -59,7 +61,11 @@ export class AplRuntime extends EventEmitter {
 	private _breakPoints = new Map<string, IAplBreakpoint[]>();
 	
 	// link info returned from interpreter
-	private _linkInfo: string[][] = [];
+	private _linkInfo: {
+		aplName: string; 
+		filePath: string;
+		startLine: number;
+	}[] = [];
 
 	// maps from sourceFile to APL name
 	private _linkMap = {};
@@ -88,6 +94,8 @@ export class AplRuntime extends EventEmitter {
 	private tid = 0; // tid:timeout id
 	private _winId = 0; // current window id
 	private _startTime = 0; // start time of debug session
+	private _executeText = '';
+	private _echoReceived = new Subject();
 	private _sessionReady = new Subject();
 	private _windows: OpenWindowMessage[] = [];
 
@@ -120,44 +128,40 @@ export class AplRuntime extends EventEmitter {
 		await this._sessionReady.wait();
 
 		if (this._folder) {
-			this.exec(0, `⎕SE.Link.Create # '${this._folder}'`);
+			await this.exec(0, `⎕SE.Link.Create # '${this._folder}'`, 1);
 		}
 		if (this._sourceFile) {
-			this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`);
+			await this.exec(0, `name←⊃2 ⎕FIX 'file://${this._sourceFile}'`, 1);
 		}
 		await this.getLinkInfo();
 		this.initialiseBreakpoints();
 		if (this._sourceFile) {
-			this.exec(this._trace ? 1 : 0, '⍎name');
+			await this.exec(this._trace ? 1 : 0, '⍎name', 1);
 		}
 	}
 
 	private async getLinkInfo() {
-		await this._fileAccessor.deleteFile(this._link);
-		this.exec(0, `(⊂⎕JSON{(⍕2⊃⍵)@2⊢⍵}¨5177⌶⍬)⎕NPUT '${this._link}' 1`);
+		await this._fileAccessor.deleteFile(this._link).catch(this.err);
+		await this.exec(0, `(⊂⎕JSON ⍕¨¨5177⌶⍬)⎕NPUT '${this._link}' 1`, 1);
 		return this._fileAccessor.checkExists(this._link, 5000)
 		.then(() => this._fileAccessor.readFile(this._link))
 		.then((data) => {
-			this._linkInfo = JSON.parse(data);
+			const json = new TextDecoder().decode(data);
 			const map = {};
-			this._linkInfo.forEach(x => {
-				const aplName = `${x[1]}.${x[0]}`;
-				const filePath = Path.resolve(x[3]);
+			this._linkInfo = JSON.parse(json).map((row: string[]) => {
+				const aplName = row[0][0] === '#' ? row[0] : `${row[1]}.${row[0]}`;
+				const filePath = Path.resolve(row[3]);
+				const startLine = +row[4];
 				map[aplName] = filePath;
 				map[filePath] = aplName;
+				return { aplName, filePath, startLine };
 			});
 			this._linkMap = map;
 		}).catch(this.err);
 	}
 	
 	private initialiseBreakpoints() {
-		this._breakPoints.forEach((bps, path) =>{
-			const aplName = this._linkMap[path];
-			if (bps.length && aplName){
-				const lines = bps.map(bp => bp.line).join(' ');
-				this.exec(0, `{}${lines} ⎕STOP '${aplName}'`);
-			}
-		});
+		this._breakPoints.forEach(this.setBreakPointOnFile.bind(this));
 	}
 
 	private _terminate: any;
@@ -214,7 +218,7 @@ export class AplRuntime extends EventEmitter {
 						RIDE_INIT: `CONNECT:${hp}`, // eslint-disable-line  @typescript-eslint/naming-convention 
 					},
 				});
-			} catch (e) { this.err(e); return; }
+			} catch (e) { this.err(`{e}`); return; }
 			this._child.on('exit', (code, sig) => {
 				srv && srv.close();
 				if (code !== 0) {
@@ -398,8 +402,13 @@ export class AplRuntime extends EventEmitter {
 		}
 	}
 
-	private exec(trace: number, expression: string) {
-		this.send('Execute', { trace, text: `${expression}\n` });
+	private async exec(trace: number, expression: string, awaitEcho?: number) {
+		const text = `${expression}\n`;
+		this._executeText = text;
+		this.send('Execute', { trace, text });
+		if (awaitEcho) {
+			await this._echoReceived.wait();
+		}
 	}
 
 	private remoteIdentification?: object;
@@ -454,7 +463,9 @@ export class AplRuntime extends EventEmitter {
 	}
 
 	private echoInput(x: EchoInputMessage) {
-		// this.add(x.input);
+		if (x.input === this._executeText) {
+			this._echoReceived.notifyAll();
+		}
 	}
 
 	private setPromptType(x: SetPromptTypeMessage) {
@@ -577,8 +588,8 @@ export class AplRuntime extends EventEmitter {
 				const frame: IStackFrame = {
 					index: i,
 					name: m[1],
-					file,
-					line: +m[2],
+					file: s.filename || file,
+					line: s.fileline + +m[2],
 				};
 				return frame;
 			});
@@ -801,13 +812,25 @@ export class AplRuntime extends EventEmitter {
 			bp = { verified: false, line, id: this._breakpointId++ };
 			bps.push(bp);
 		}
-		const aplName = this._linkMap[filePath];
-		if (aplName) {
-			const lines = bps.map(bp => bp.line).join(' ');
-			this.exec(0, `{}${lines} ⎕STOP '${aplName}'`);
-		}
-
+		this.setBreakPointOnFile(bps, filePath);
 		return bp;
+	}
+
+	private setBreakPointOnFile(bps: IAplBreakpoint[], filePath: string) {
+		const fnbp = {};
+		if (this._linkInfo.length === 0) return;
+		bps.forEach((bp) => {
+			const row = this._linkInfo.find((row) => row.filePath === filePath && row.startLine < bp.line);
+			if (row) {
+				const lines = fnbp[row.aplName] || [];
+				lines.push(bp.line - row.startLine);
+				fnbp[row.aplName] = lines;
+			}
+		});
+		Object.keys(fnbp).forEach(async (aplName) => {
+			const lines = fnbp[aplName].join(' ');
+			await this.exec(0, `{}${lines} ⎕STOP '${aplName}'`, 1);
+		})
 	}
 
 	/*

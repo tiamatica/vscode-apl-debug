@@ -1,0 +1,29 @@
+:Namespace namespace
+    ∇ r←make0 a
+      r←a
+      ⎕←'Helloworld'
+    ∇
+
+    ∇ r←make1 a
+      2
+      3
+      4
+      5
+      r←a-1
+      ⎕←'Helloworld'
+    ∇
+
+    ∇ r←Hej a
+      r←a
+      ⎕←'Helloworld'
+    ∇
+
+
+    ∇ r←make2 a
+      6
+      7
+      8
+      r←a-1
+      ⎕←'Helloworld'
+    ∇
+:EndNamespace

@@ -5,12 +5,9 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import * as path from 'path';
 import { WorkspaceFolder, DebugConfiguration, ProviderResult, CancellationToken } from 'vscode';
 import { AplDebugSession } from './aplDebug';
 import { FileAccessor } from './aplRuntime';
-import { callbackify, promisify } from 'util';
 
 let aplStatusBarItem: vscode.StatusBarItem;
 
@@ -136,6 +133,7 @@ export function activateAplDebug(context: vscode.ExtensionContext, factory?: vsc
 	}
 	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory('apl', factory));
 	if ('dispose' in factory) {
+		// @ts-ignore
 		context.subscriptions.push(factory);
 	}
 	context.subscriptions.push(vscode.debug.onDidReceiveDebugSessionCustomEvent((customEvent) => {
@@ -217,61 +215,53 @@ class AplConfigurationProvider implements vscode.DebugConfigurationProvider {
 }
 
 export const workspaceFileAccessor: FileAccessor = {
+	isWindows: false,
 	async checkExists(filePath: string, timeout: number) {
 		return new Promise(function (resolve, reject) {
-	
-			var timer = setTimeout(function () {
-				watcher.close();
-				reject(new Error('File did not exists and was not created during the timeout.'));
-			}, timeout);
-	
-			fs.access(filePath, fs.constants.R_OK, function (err) {
-				if (!err) {
+			const startTS = +new Date();
+			const interval = Math.min(timeout, 100);
+			let stats: vscode.FileStat;
+			const uri = pathToUri(filePath);
+			const check = async () => {
+				if (timeout < +new Date() - startTS) {
+					reject(new Error('File did not exists and was not created during the timeout.'));
+				}
+				try {
+					stats = await vscode.workspace.fs.stat(uri);
 					clearTimeout(timer);
-					watcher.close();
 					resolve(true);
-				}
-			});
-	
-			var dir = path.dirname(filePath);
-			var basename = path.basename(filePath);
-			var watcher = fs.watch(dir, function (eventType, filename) {
-				if (eventType === 'rename' && filename === basename) {
-					clearTimeout(timer);
-					watcher.close();
-					resolve(true);
-				}
-			});
-		});
-	},
-	async deleteFile(filePath: string) {
-		return new Promise((resolve, reject) => {
-			fs.rm(filePath, {force: true }, (err) => {
-				if (err) {
-					reject(err);
-				}
-				resolve(true);
-			});
-		});
-	},
-	async readFile(path: string) {
-		try {
-			const uri = vscode.Uri.file(path);
-			const bytes = await vscode.workspace.fs.readFile(uri);
-			const contents = Buffer.from(bytes).toString('utf8');
-			return contents;
-		} catch(e) {
-			try {
-				const uri = vscode.Uri.parse(path);
-				const bytes = await vscode.workspace.fs.readFile(uri);
-				const contents = Buffer.from(bytes).toString('utf8');
-				return contents;
-			} catch (e) {
-				return `cannot read '${path}'`;
+				} catch (e) {
+				}					
 			}
-		}
+			const timer = setTimeout(check, interval);
+		});
 	},
+	async deleteFile(filePath: string): Promise<void> {
+		const uri = pathToUri(filePath);
+		return vscode.workspace.fs.delete(uri);
+	},
+	async readFile(path: string): Promise<Uint8Array> {
+		let uri: vscode.Uri;
+		try {
+			uri = pathToUri(path);
+		} catch (e) {
+			return new TextEncoder().encode(`cannot read '${path}'`);
+		}
+
+		return await vscode.workspace.fs.readFile(uri);
+	},
+	async writeFile(path: string, contents: Uint8Array) {
+		await vscode.workspace.fs.writeFile(pathToUri(path), contents);
+	}
 };
+
+function pathToUri(path: string) {
+	try {
+		return vscode.Uri.file(path);
+	} catch (e) {
+		return vscode.Uri.parse(path);
+	}
+}
 
 class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
 

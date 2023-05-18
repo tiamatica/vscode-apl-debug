@@ -10,23 +10,9 @@
 				"${workspaceFolder}/sampleWorkspace"
 			],
 			"outFiles": [
-				"${workspaceFolder}/dist/ext/**/*.js"
+				"${workspaceFolder}/dist/**/*.js"
 			],
 			"preLaunchTask": "npm: watch"
-		},
-		{
-			"name": "Web Extension",
-			"type": "pwa-extensionHost",
-			"debugWebWorkerHost": true,
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}",
-				"${workspaceFolder}/sampleWebWorkerWorkspace"
-			],
-			"outFiles": [
-				"${workspaceFolder}/dist/web/**/*.js"
-			],
-			"preLaunchTask": "npm: watch-web"
 		},
 		{
 			"name": "Server",
